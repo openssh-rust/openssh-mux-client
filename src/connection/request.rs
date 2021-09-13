@@ -30,14 +30,20 @@ pub enum Request<'a, 'b> {
     /// `Response::ExitMessage` if remote TTY allocation was unsuccessful.
     ///
     /// The client may use this to return its local tty to "cooked" mode.
-    NewSession (Session<'a, 'b>),
+    NewSession {
+        request_id: u32,
+        session: Session<'a, 'b>,
+    },
 
     /// A server may reply with `Response::Ok`, `Response::RemotePort`,
     /// `Response::PermissionDenied`, or `Response::Failure`.
     /// 
     /// For dynamically allocated listen port the server replies with
     /// `Request::RemotePort`.
-    OpenFwd (Fwd<'a>),
+    OpenFwd {
+        request_id: u32,
+        fwd: Fwd<'a>,
+    },
 
     /// A client may request the master to stop accepting new multiplexing requests
     /// and remove its listener socket.
@@ -70,19 +76,20 @@ impl<'a, 'b> Serialize for Request<'a, 'b> {
                     "AliveCheck",
                     request_id
                 ),
-            NewSession (session) =>
+            NewSession { request_id, session } => {
                 serializer.serialize_newtype_variant(
                     "Request",
                     MUX_C_NEW_SESSION,
                     "NewSession",
-                    session
-                ),
-            OpenFwd (fwd) =>
+                    &(*request_id, *session)
+                )
+            },
+            OpenFwd { request_id, fwd } =>
                 serializer.serialize_newtype_variant(
                     "Request",
                     MUX_C_OPEN_FWD,
                     "OpenFwd",
-                    fwd
+                    &(*request_id, *fwd)
                 ),
             StopListening { request_id } =>
                 serializer.serialize_newtype_variant(
@@ -104,8 +111,6 @@ impl<'a, 'b> Serialize for Request<'a, 'b> {
 
 #[derive(Copy, Clone, Debug, Serialize)]
 pub struct Session<'a, 'b> {
-    request_id: u32,
-
     /// Must be set to empty string
     reserved:  &'static str,
 
@@ -124,7 +129,6 @@ pub struct Session<'a, 'b> {
 
 #[derive(Copy, Clone, Debug, Serialize)]
 pub struct Fwd<'a> {
-    request_id: u32,
     fwd_type: ForwardingType,
     listen_socket: Socket<'a>,
     connect_socket: Socket<'a>,
