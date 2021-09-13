@@ -4,7 +4,7 @@ macro_rules! def_constants {
     }
 }
 
-pub const UNSUPPORTED_MUX_PROTOCOL_ERRMSG: &'static str = "Expected protocol 4";
+pub const UNSUPPORTED_MUX_PROTOCOL_ERRMSG: &str = "Expected protocol 4";
 
 def_constants!(SSHMUX_VER, 4);
 
