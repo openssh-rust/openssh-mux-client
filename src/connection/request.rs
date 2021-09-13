@@ -127,27 +127,50 @@ pub struct Session<'a, 'b> {
     pub env: Option<&'a [&'b str]>,
 }
 
-#[derive(Copy, Clone, Debug, Serialize)]
-pub struct Fwd<'a> {
-    fwd_type: ForwardingType,
-    listen_socket: Socket<'a>,
-    connect_socket: Socket<'a>,
-}
-
-#[repr(u32)]
 #[derive(Copy, Clone, Debug)]
-pub enum ForwardingType {
-    Local   = super::constants::MUX_FWD_LOCAL,
-    Remote  = super::constants::MUX_FWD_REMOTE,
-    Dynamic = super::constants::MUX_FWD_DYNAMIC,
+pub enum Fwd<'a> {
+    Local {
+        listen_socket: Socket<'a>,
+        connect_socket: Socket<'a>,
+    },
+    Remote {
+        listen_socket: Socket<'a>,
+        connect_socket: Socket<'a>,
+    },
+    Dynamic {
+        listen_socket: Socket<'a>,
+    },
 }
-impl Serialize for ForwardingType {
+impl<'a> Serialize for Fwd<'a> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_unit_variant(
-            "ForwardingType",
-            *self as u32,
-            "",
-        )
+        use Fwd::*;
+
+        match self {
+            Local { listen_socket, connect_socket } => {
+                serializer.serialize_newtype_variant(
+                    "Fwd",
+                    constants::MUX_FWD_LOCAL,
+                    "Local",
+                    &(*listen_socket, *connect_socket)
+                )
+            },
+            Remote { listen_socket, connect_socket } => {
+                serializer.serialize_newtype_variant(
+                    "Fwd",
+                    constants::MUX_FWD_REMOTE,
+                    "Remote",
+                    &(*listen_socket, *connect_socket)
+                )
+            },
+            Dynamic { listen_socket } => {
+                serializer.serialize_newtype_variant(
+                    "Fwd",
+                    constants::MUX_FWD_DYNAMIC,
+                    "Dynamic",
+                    listen_socket
+                )
+            },
+        }
     }
 }
 
