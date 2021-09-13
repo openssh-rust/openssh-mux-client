@@ -114,17 +114,17 @@ pub struct Session<'a, 'b> {
     /// Must be set to empty string
     reserved:  &'static str,
 
-    tty: bool,
-    x11_forwarding: bool,
-    agent: bool,
-    subsystem: bool,
+    pub tty: bool,
+    pub x11_forwarding: bool,
+    pub agent: bool,
+    pub subsystem: bool,
 
     /// Set to `0xffffffff` to disable escape character
-    escape_ch: char,
+    pub escape_ch: char,
     /// Generally set to `$TERM`.
-    term: &'a str,
-    cmd: &'a str,
-    env: Option<&'a [&'b str]>,
+    pub term: &'a str,
+    pub cmd: &'a str,
+    pub env: Option<&'a [&'b str]>,
 }
 
 #[derive(Copy, Clone, Debug, Serialize)]
