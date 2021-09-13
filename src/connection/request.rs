@@ -3,7 +3,7 @@ use typed_builder::TypedBuilder;
 use super::constants;
 
 #[derive(Copy, Clone, Debug)]
-pub enum Request<'a, 'b> {
+pub enum Request<'a> {
     /// Response with `Response::Hello`.
     Hello { version: u32 },
 
@@ -36,7 +36,7 @@ pub enum Request<'a, 'b> {
         /// Must be set to empty string
         reserved:  &'static str,
 
-        session: Session<'a, 'b>,
+        session: Session<'a>,
     },
 
     /// A server may reply with `Response::Ok`, `Response::RemotePort`,
@@ -60,7 +60,7 @@ pub enum Request<'a, 'b> {
     /// Server may response with `Response::Ok` or `Response::PermissionDenied`.
     Terminate { request_id: u32 },
 }
-impl<'a, 'b> Serialize for Request<'a, 'b> {
+impl<'a> Serialize for Request<'a> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use Request::*;
         use constants::*;
@@ -114,7 +114,7 @@ impl<'a, 'b> Serialize for Request<'a, 'b> {
 }
 
 #[derive(Copy, Clone, Debug, Serialize, TypedBuilder)]
-pub struct Session<'a, 'b> {
+pub struct Session<'a> {
     #[builder(default = false)]
     pub tty: bool,
 
@@ -135,7 +135,7 @@ pub struct Session<'a, 'b> {
     pub term: &'a str,
     pub cmd: &'a str,
 
-    pub env: Option<&'a [&'b str]>,
+    pub env: Option<&'a [&'a str]>,
 }
 
 #[derive(Copy, Clone, Debug)]
