@@ -135,6 +135,7 @@ pub struct Session<'a> {
     pub term: &'a str,
     pub cmd: &'a str,
 
+    #[builder(default = None)]
     pub env: Option<&'a [&'a str]>,
 }
 
