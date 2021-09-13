@@ -1,4 +1,5 @@
 use serde::{Serialize, ser::Serializer};
+use typed_builder::TypedBuilder;
 use super::constants;
 
 #[derive(Copy, Clone, Debug)]
@@ -112,18 +113,28 @@ impl<'a, 'b> Serialize for Request<'a, 'b> {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Serialize, TypedBuilder)]
 pub struct Session<'a, 'b> {
+    #[builder(default = false)]
     pub tty: bool,
+
+    #[builder(default = false)]
     pub x11_forwarding: bool,
+
+    #[builder(default = false)]
     pub agent: bool,
+
+    #[builder(default = false)]
     pub subsystem: bool,
 
-    /// Set to `0xffffffff` to disable escape character
+    /// Set to `0xffffffff`(`char::MAX`) to disable escape character
+    #[builder(default = char::MAX)]
     pub escape_ch: char,
+
     /// Generally set to `$TERM`.
     pub term: &'a str,
     pub cmd: &'a str,
+
     pub env: Option<&'a [&'b str]>,
 }
 
