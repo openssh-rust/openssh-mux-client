@@ -25,7 +25,7 @@ pub struct Connection {
     buffer: Vec<u8>,
 }
 impl Connection {
-    async fn write<'a>(&mut self, value: &Request<'a>) -> Result<()> {
+    async fn write(&mut self, value: &Request<'_>) -> Result<()> {
         value.serialize(&mut self.serializer)?;
 
         self.raw_conn.write(self.serializer.get_output()?).await?;
