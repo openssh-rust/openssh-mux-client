@@ -181,7 +181,10 @@ impl<'a> Serialize for Fwd<'a> {
                     "Fwd",
                     constants::MUX_FWD_DYNAMIC,
                     "Dynamic",
-                    *listen_socket
+                    &(
+                        *listen_socket,
+                        Socket::UnixSocket { path: "" }
+                    )
                 )
             },
         }
