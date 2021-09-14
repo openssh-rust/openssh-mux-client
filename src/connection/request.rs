@@ -11,7 +11,8 @@ pub enum Request<'a> {
     /// Server replied with `Response::Alive`.
     AliveCheck { request_id: u32 },
 
-    /// For opening a new multiplexed session in passenger mode
+    /// For opening a new multiplexed session in passenger mode,
+    /// send this variant and then sends stdin, stdout and stderr fd.
     ///
     /// If successful, the server will reply with `Response::SessionOpened`.
     ///
@@ -19,11 +20,8 @@ pub enum Request<'a> {
     ///  - `Response::PermissionDenied`;
     ///  - `Response::Failure`.
     ///
-    /// The client then sends stdin, stdout and stderr fd.
-    ///
-    /// Once the server has received the fds, it will respond with `Response::Ok`
-    /// indicating that the session is up. The client now waits for the
-    /// session to end. When it does, the server will send `Response::ExitMessage`.
+    /// The client now waits for the session to end. When it does, the server
+    /// will send `Response::ExitMessage`.
     ///
     /// Two additional cases that the client must cope with are it receiving
     /// a signal itself and the server disconnecting without sending an exit message.

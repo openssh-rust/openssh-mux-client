@@ -131,8 +131,8 @@ impl Connection {
 
         let request_id = self.get_request_id();
 
-        let reserved = "";
-        self.write(&Request::NewSession { request_id, reserved, session }).await?;
+        self.write(&Request::NewSession { request_id, reserved: "", session }).await?;
+        self.raw_conn.send_fds(&fds[..])?;
 
         let session_id = match self.read_response().await? {
             SessionOpened { response_id, session_id } => {
@@ -153,27 +153,20 @@ impl Connection {
             )),
         };
 
-        self.raw_conn.send_fds(&fds[..])?;
-
-        match self.read_response().await? {
-            Response::Ok { response_id } => {
-                Self::check_response_id(request_id, response_id)?;
-                Result::Ok(session_id)
-            },
-            response =>
-                Err(Error::InvalidServerResponse("Expected Response::Ok", response)),
-        }
+        Result::Ok(session_id)
     }
 
     /// Consumes `self` so that users would not be able to create multiple sessions
     /// or perform other operations during the session that might complicates the
     /// handling of packets received from the ssh mux server.
     ///
+    /// Two additional cases that the client must cope with are it receiving
+    /// a signal itself and the server disconnecting without sending an exit message.
+    ///
     /// The return value `EstablishedSession` will contain the moved `self`, which once
     /// the session has exited, you can get back this `Connection` and reused it.
     ///
-    /// Return `Self` so that you can handle the error and reuse
-    /// the `Connection`.
+    /// Return `Self` so that you can handle the error and reuse the `Connection`.
     pub async fn open_new_session(mut self, session: &Session<'_>, fds: &[RawFd; 3])
         -> Result<EstablishedSession, (Error, Self)>
     {
