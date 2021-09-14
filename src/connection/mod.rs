@@ -123,44 +123,76 @@ impl Connection {
         }
     }
 
+    /// Return `Self` so that you can handle the error and reuse
+    /// the `Connection`.
     pub async fn open_new_session(mut self, session: &Session<'_>, fds: &[RawFd; 3])
-        -> Result<EstablishedSession>
+        -> Result<EstablishedSession, (Error, Self)>
     {
         use Response::*;
 
         let request_id = self.get_request_id();
 
-        let reserved = "";
-        self.write(&Request::NewSession { request_id, reserved, session }).await?;
+        let result = self.write(&Request::NewSession {
+            request_id,
+            reserved: "",
+            session
+        }).await;
+        if let Err(err) = result {
+            return Err((err, self));
+        }
 
-        let session_id = match self.read_response().await? {
+        let response = match self.read_response().await {
+            Result::Ok(response) => response,
+            Err(err) => return Err((err, self)),
+        };
+
+        let session_id = match response {
             SessionOpened { response_id, session_id } => {
-                Self::check_response_id(request_id, response_id)?;
+                if let Err(err) = Self::check_response_id(request_id, response_id) {
+                    return Err((err, self));
+                }
                 session_id
             },
             PermissionDenied { response_id, reason } => {
-                Self::check_response_id(request_id, response_id)?;
-                return Err(Error::PermissionDenied(reason))
+                if let Err(err) = Self::check_response_id(request_id, response_id) {
+                    return Err((err, self));
+                }
+                return Err((Error::PermissionDenied(reason), self))
             },
             Failure { response_id, reason } => {
-                Self::check_response_id(request_id, response_id)?;
-                return Err(Error::RequestFailure(reason))
+                if let Err(err) = Self::check_response_id(request_id, response_id) {
+                    return Err((err, self));
+                }
+                return Err((Error::RequestFailure(reason), self))
             },
-            _ => return Err(Error::InvalidServerResponse(
-                "Expected Response: SessionOpened, PermissionDenied or Failure"
+            _ => return Err((
+                Error::InvalidServerResponse(
+                    "Expected Response: SessionOpened, PermissionDenied or Failure"
+                ),
+                self
             )),
         };
 
-        self.raw_conn.send_fds(&fds[..])?;
+        if let Err(err) = self.raw_conn.send_fds(&fds[..]) {
+            return Err((err, self));
+        }
 
-        if let Ok { response_id } = self.read_response().await? {
-            Self::check_response_id(request_id, response_id)?;
-            Result::Ok(EstablishedSession {
-                conn: self,
-                session_id,
-            })
+        let response = match self.read_response().await {
+            Result::Ok(response) => response,
+            Err(err) => return Err((err, self)),
+        };
+
+        if let Ok { response_id } = response {
+            if let Err(err) = Self::check_response_id(request_id, response_id) {
+                Err((err, self))
+            } else {
+                Result::Ok(EstablishedSession {
+                    conn: self,
+                    session_id,
+                })
+            }
         } else {
-            Err(Error::InvalidServerResponse("Expected Response::Ok"))
+            Err((Error::InvalidServerResponse("Expected Response::Ok"), self))
         }
     }
 
