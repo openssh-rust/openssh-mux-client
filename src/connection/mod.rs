@@ -270,6 +270,9 @@ impl Connection {
     }
 
     /// Request the master to terminate immediately.
+    ///
+    /// Return `Self` so that you can handle the error and reuse
+    /// the `Connection`.
     pub async fn request_terminate(mut self) -> Result<(), (Error, Self)> {
         use Response::*;
 
