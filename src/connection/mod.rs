@@ -26,7 +26,7 @@ pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 pub use request::{Session, Socket};
 pub use session::*;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum ForwardType {
     Local,
     Remote,
