@@ -11,6 +11,8 @@ pub enum Error {
     UnmatchedRequestId,
     IOError(io::Error),
     FormatError(ssh_mux_format::Error),
+    RequestFailure(String),
+    PermissionDenied(String),
 }
 
 impl From<io::Error> for Error {
@@ -47,6 +49,10 @@ impl fmt::Display for Error {
                 formatter.write_str(
                     "The request_id server response with doesn't match the request"
                 ),
+            RequestFailure(reason) =>
+                formatter.write_fmt(format_args!("Request failed: {}", reason)),
+            PermissionDenied(reason) =>
+                formatter.write_fmt(format_args!("Permission denied: {}", reason)),
         }
     }
 }
