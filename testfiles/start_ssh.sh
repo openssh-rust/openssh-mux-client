@@ -2,7 +2,7 @@
 
 cd $(dirname $(realpath $0))
 
-rm known_host
+rm -f known_host
 
 if [ "$1" != "term" ]; then
     options="-nT"
