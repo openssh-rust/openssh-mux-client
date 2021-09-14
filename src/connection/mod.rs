@@ -23,6 +23,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 pub use request::Session;
 
+#[derive(Debug)]
 pub struct Connection {
     raw_conn: RawConnection,
     serializer: Serializer,
