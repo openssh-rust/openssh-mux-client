@@ -201,6 +201,37 @@ impl Connection {
             )),
         }
     }
+
+    /// Return remote port opened for dynamic forwarding.
+    pub async fn request_dynamic_forward(&mut self, listen_socket: &Socket<'_>)
+        -> Result<u32>
+    {
+        use Response::*;
+
+        let fwd = Fwd::Dynamic { listen_socket };
+        let fwd = &fwd;
+
+        let request_id = self.get_request_id();
+        self.write(&Request::OpenFwd { request_id, fwd }).await?;
+
+        match self.read_response().await? {
+            RemotePort { response_id, remote_port } => {
+                Self::check_response_id(request_id, response_id)?;
+                Result::Ok(remote_port)
+            },
+            PermissionDenied { response_id, reason } => {
+                Self::check_response_id(request_id, response_id)?;
+                Err(Error::PermissionDenied(reason))
+            },
+            Failure { response_id, reason } => {
+                Self::check_response_id(request_id, response_id)?;
+                Err(Error::RequestFailure(reason))
+            },
+            _ => Err(Error::InvalidServerResponse(
+                "Expected Response: RemotePort, PermissionDenied or Failure"
+            )),
+        }
+    }
 }
 
 pub struct EstablishedSession {
