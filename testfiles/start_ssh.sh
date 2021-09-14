@@ -2,7 +2,7 @@
 
 cd $(dirname $(realpath $0))
 
-rm -f known_host
+rm -f known_host ssh_log
 
 if [ "$1" != "term" ]; then
     options="-nT"
