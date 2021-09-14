@@ -74,26 +74,28 @@ impl Connection {
         }
     }
 
-    pub async fn connect<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let mut conn = Self {
-            raw_conn: RawConnection::connect(path).await?,
-            serializer: Serializer::new(),
-            buffer: Vec::with_capacity(mem::size_of::<Response>()),
-            request_id: Wrapping(0),
-        };
+    async fn exchange_hello(mut self) -> Result<Self> {
+        self.write(&Request::Hello { version: constants::SSHMUX_VER }).await?;
 
-        conn.write(&Request::Hello { version: constants::SSHMUX_VER }).await?;
-
-        let response = conn.read_response().await?;
+        let response = self.read_response().await?;
         if let Response::Hello { version } = response {
             if version != constants::SSHMUX_VER {
                 Err(Error::UnsupportedMuxProtocol)
             } else {
-                Ok(conn)
+                Ok(self)
             }
         } else {
             Err(Error::InvalidServerResponse("Expected Hello message"))
         }
+    }
+
+    pub async fn connect<P: AsRef<Path>>(path: P) -> Result<Self> {
+        Self {
+            raw_conn: RawConnection::connect(path).await?,
+            serializer: Serializer::new(),
+            buffer: Vec::with_capacity(mem::size_of::<Response>()),
+            request_id: Wrapping(0),
+        }.exchange_hello().await
     }
 
     /// Return pid of the ssh mux server.
