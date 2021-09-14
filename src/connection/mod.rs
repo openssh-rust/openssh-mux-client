@@ -26,6 +26,12 @@ pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 pub use request::{Session, Socket};
 pub use session::*;
 
+#[derive(Copy, Clone, Debug)]
+pub enum ForwardType {
+    Local,
+    Remote,
+}
+
 #[derive(Debug)]
 pub struct Connection {
     raw_conn: RawConnection,
@@ -300,10 +306,4 @@ impl Connection {
                 )),
         }
     }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum ForwardType {
-    Local,
-    Remote,
 }
