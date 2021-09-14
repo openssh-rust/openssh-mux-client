@@ -9,6 +9,7 @@ use passfd::FdPassingExt;
 
 use super::Result;
 
+#[derive(Debug)]
 pub struct RawConnection {
     stream: UnixStream,
 }
