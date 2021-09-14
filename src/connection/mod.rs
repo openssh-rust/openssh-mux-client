@@ -109,7 +109,7 @@ impl Connection {
     }
 
     /// Return pid of the ssh mux server.
-    pub async fn send_alive_check(&mut self) -> Result<u32> {
+    pub async fn send_alive_check(&mut self) -> Result<NonZeroU32> {
         let request_id = self.get_request_id();
 
         self.write(&Request::AliveCheck { request_id }).await?;
@@ -117,7 +117,8 @@ impl Connection {
         let response = self.read_response().await?;
         if let Response::Alive { response_id, server_pid } = response {
             Self::check_response_id(request_id, response_id)?;
-            Ok(server_pid)
+            NonZeroU32::new(server_pid)
+                .ok_or(Error::InvalidPid)
         } else {
             Err(Error::InvalidServerResponse("Expected Response::Alive", response))
         }
