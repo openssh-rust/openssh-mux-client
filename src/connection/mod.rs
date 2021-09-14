@@ -20,7 +20,7 @@ use ssh_mux_format::{Serializer, from_bytes};
 pub use std::os::unix::io::RawFd;
 
 pub use error::Error;
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 
 pub use request::{Session, Socket};
 
@@ -231,6 +231,71 @@ impl Connection {
             _ => Err(Error::InvalidServerResponse(
                 "Expected Response: RemotePort, PermissionDenied or Failure"
             )),
+        }
+    }
+
+    /// Request the master to stop accepting new multiplexing requests and remove its
+    /// listener socket.
+    pub async fn request_stop_listening(&mut self) -> Result<()> {
+        use Response::*;
+
+        let request_id = self.get_request_id();
+        self.write(&Request::StopListening { request_id }).await?;
+
+        match self.read_response().await? {
+            Ok { response_id } => {
+                Self::check_response_id(request_id, response_id)?;
+                Result::Ok(())
+            },
+            PermissionDenied { response_id, reason } => {
+                Self::check_response_id(request_id, response_id)?;
+                Err(Error::PermissionDenied(reason))
+            },
+            Failure { response_id, reason } => {
+                Self::check_response_id(request_id, response_id)?;
+                Err(Error::RequestFailure(reason))
+            },
+            _ => Err(Error::InvalidServerResponse(
+                "Expected Response: Ok, PermissionDenied or Failure"
+            )),
+        }
+    }
+
+    /// Request the master to terminate immediately.
+    pub async fn request_terminate(mut self) -> Result<(), (Error, Self)> {
+        use Response::*;
+
+        let request_id = self.get_request_id();
+        if let Err(err) = self.write(&Request::Terminate { request_id }).await {
+            return Err((err, self));
+        }
+
+        let response = match self.read_response().await {
+            Result::Ok(response) => response,
+            Err(err) => return Err((err, self)),
+        };
+
+        match response {
+            Ok { response_id } => {
+                if let Err(err) = Self::check_response_id(request_id, response_id) {
+                    Err((err, self))
+                } else {
+                    Result::Ok(())
+                }
+            },
+            PermissionDenied { response_id, reason } => {
+                if let Err(err) = Self::check_response_id(request_id, response_id) {
+                    Err((err, self))
+                } else {
+                    Err((Error::PermissionDenied(reason), self))
+                }
+            },
+            _ => Err((
+                    Error::InvalidServerResponse(
+                        "Expected Response: Ok or PermissionDenied"
+                    ),
+                    self
+                )),
         }
     }
 }
