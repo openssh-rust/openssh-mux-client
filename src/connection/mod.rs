@@ -156,12 +156,15 @@ impl Connection {
         Result::Ok(session_id)
     }
 
+    /// Opens a new session.
+    ///
     /// Consumes `self` so that users would not be able to create multiple sessions
     /// or perform other operations during the session that might complicates the
     /// handling of packets received from the ssh mux server.
     ///
     /// Two additional cases that the client must cope with are it receiving
-    /// a signal itself and the server disconnecting without sending an exit message.
+    /// a signal itself (from the ssh mux server) and the server disconnecting
+    /// without sending an exit message.
     ///
     /// The return value `EstablishedSession` will contain the moved `self`, which once
     /// the session has exited, you can get back this `Connection` and reused it.
