@@ -6,7 +6,6 @@ mod raw_connection;
 mod session;
 
 use request::Request;
-use response::Response;
 use raw_connection::RawConnection;
 use request::Fwd;
 
@@ -20,6 +19,7 @@ use ssh_mux_format::{Serializer, from_bytes};
 
 pub use std::os::unix::io::RawFd;
 
+pub use response::Response;
 pub use error::Error;
 pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 
