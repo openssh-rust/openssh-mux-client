@@ -9,6 +9,7 @@ pub enum Error {
     UnsupportedMuxProtocol,
     InvalidServerResponse(&'static str),
     UnmatchedRequestId,
+    UnmatchedSessionId,
     IOError(io::Error),
     FormatError(ssh_mux_format::Error),
     RequestFailure(String),
@@ -47,7 +48,11 @@ impl fmt::Display for Error {
                 )),
             UnmatchedRequestId =>
                 formatter.write_str(
-                    "The request_id server response with doesn't match the request"
+                    "The request_id server response with doesn't match with the request"
+                ),
+            UnmatchedSessionId => 
+                formatter.write_str(
+                    "The session_id server response with doesn't match with the request"
                 ),
             RequestFailure(reason) =>
                 formatter.write_fmt(format_args!("Request failed: {}", reason)),
