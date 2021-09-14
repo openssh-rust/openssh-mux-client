@@ -2,12 +2,12 @@ use std::convert::From;
 use std::io;
 use std::fmt;
 
-use super::constants;
+use super::{constants, Response};
 
 #[derive(Debug)]
 pub enum Error {
     UnsupportedMuxProtocol,
-    InvalidServerResponse(&'static str),
+    InvalidServerResponse(&'static str, Response),
     UnmatchedRequestId,
     UnmatchedSessionId,
     IOError(io::Error),
@@ -38,8 +38,12 @@ impl fmt::Display for Error {
                     "Unsupported server protocol: {:#?}",
                     constants::UNSUPPORTED_MUX_PROTOCOL_ERRMSG
                 )),
-            InvalidServerResponse(msg) =>
-                formatter.write_fmt(format_args!("Invalid server response: {:#?}", msg)),
+            InvalidServerResponse(msg, response) =>
+                formatter.write_fmt(format_args!(
+                    "Invalid server response: {}, Actual response: {:#?}",
+                    msg,
+                    response
+                )),
             InvalidPort =>
                 formatter.write_str("Invalid port from the server: Port must not be 0"),
             IOError(err) =>

@@ -95,7 +95,7 @@ impl Connection {
                 Ok(self)
             }
         } else {
-            Err(Error::InvalidServerResponse("Expected Hello message"))
+            Err(Error::InvalidServerResponse("Expected Hello message", response))
         }
     }
 
@@ -119,7 +119,7 @@ impl Connection {
             Self::check_response_id(request_id, response_id)?;
             Ok(server_pid)
         } else {
-            Err(Error::InvalidServerResponse("Expected Response::Alive"))
+            Err(Error::InvalidServerResponse("Expected Response::Alive", response))
         }
     }
 
@@ -147,18 +147,21 @@ impl Connection {
                 Self::check_response_id(request_id, response_id)?;
                 return Err(Error::RequestFailure(reason))
             },
-            _ => return Err(Error::InvalidServerResponse(
-                "Expected Response: SessionOpened, PermissionDenied or Failure"
+            response => return Err(Error::InvalidServerResponse(
+                "Expected Response: SessionOpened, PermissionDenied or Failure",
+                response
             )),
         };
 
         self.raw_conn.send_fds(&fds[..])?;
 
-        if let Response::Ok { response_id } = self.read_response().await? {
-            Self::check_response_id(request_id, response_id)?;
-            Result::Ok(session_id)
-        } else {
-            Err(Error::InvalidServerResponse("Expected Response::Ok"))
+        match self.read_response().await? {
+            Response::Ok { response_id } => {
+                Self::check_response_id(request_id, response_id)?;
+                Result::Ok(session_id)
+            },
+            response =>
+                Err(Error::InvalidServerResponse("Expected Response::Ok", response)),
         }
     }
 
@@ -223,8 +226,9 @@ impl Connection {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::RequestFailure(reason))
             },
-            _ => Err(Error::InvalidServerResponse(
-                "Expected Response: Ok, PermissionDenied or Failure"
+            response => Err(Error::InvalidServerResponse(
+                "Expected Response: Ok, PermissionDenied or Failure",
+                response
             )),
         }
     }
@@ -255,8 +259,9 @@ impl Connection {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::RequestFailure(reason))
             },
-            _ => Err(Error::InvalidServerResponse(
-                "Expected Response: RemotePort, PermissionDenied or Failure"
+            response => Err(Error::InvalidServerResponse(
+                "Expected Response: RemotePort, PermissionDenied or Failure",
+                response
             )),
         }
     }
@@ -282,8 +287,9 @@ impl Connection {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::RequestFailure(reason))
             },
-            _ => Err(Error::InvalidServerResponse(
-                "Expected Response: Ok, PermissionDenied or Failure"
+            response => Err(Error::InvalidServerResponse(
+                "Expected Response: Ok, PermissionDenied or Failure",
+                response
             )),
         }
     }
@@ -303,8 +309,9 @@ impl Connection {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::PermissionDenied(reason))
             },
-            _ => Err(Error::InvalidServerResponse(
-                    "Expected Response: Ok or PermissionDenied"
+            response => Err(Error::InvalidServerResponse(
+                    "Expected Response: Ok or PermissionDenied",
+                    response
                 )),
         }
     }
