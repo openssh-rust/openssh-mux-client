@@ -322,3 +322,24 @@ impl Connection {
             .map_err(|err| (err, self))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! run_test {
+        ( $test_name:ident, $func:ident ) => {
+            #[tokio::test(flavor = "current_thread")]
+            async fn $test_name() {
+                let path = "/tmp/openssh-mux-client-test.socket";
+                let conn = Connection::connect(path).await.unwrap();
+
+                $func(conn).await;
+            }
+        }
+    }
+
+    async fn test_connect_impl(conn: Connection) {
+    }
+    run_test!(test_connect, test_connect_impl);
+}
