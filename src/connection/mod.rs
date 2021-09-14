@@ -123,6 +123,39 @@ impl Connection {
         }
     }
 
+    async fn open_new_session_impl(&mut self, session: &Session<'_>, fds: &[RawFd; 3])
+        -> Result<(Response, u32, u32)>
+    {
+        use Response::*;
+
+        let request_id = self.get_request_id();
+
+        let reserved = "";
+        self.write(&Request::NewSession { request_id, reserved, session }).await?;
+
+        let session_id = match self.read_response().await? {
+            SessionOpened { response_id, session_id } => {
+                Self::check_response_id(request_id, response_id)?;
+                session_id
+            },
+            PermissionDenied { response_id, reason } => {
+                Self::check_response_id(request_id, response_id)?;
+                return Err(Error::PermissionDenied(reason))
+            },
+            Failure { response_id, reason } => {
+                Self::check_response_id(request_id, response_id)?;
+                return Err(Error::RequestFailure(reason))
+            },
+            _ => return Err(Error::InvalidServerResponse(
+                "Expected Response: SessionOpened, PermissionDenied or Failure"
+            )),
+        };
+
+        self.raw_conn.send_fds(&fds[..])?;
+
+        Result::Ok((self.read_response().await?, request_id, session_id))
+    }
+
     /// Consumes `self` so that users would not be able to create multiple sessions
     /// or perform other operations during the session that might complicates the
     /// handling of packets received from the ssh mux server.
@@ -135,65 +168,17 @@ impl Connection {
     pub async fn open_new_session(mut self, session: &Session<'_>, fds: &[RawFd; 3])
         -> Result<EstablishedSession, (Error, Self)>
     {
-        use Response::*;
-
-        let request_id = self.get_request_id();
-
-        let result = self.write(&Request::NewSession {
-            request_id,
-            reserved: "",
-            session
-        }).await;
-        if let Err(err) = result {
-            return Err((err, self));
-        }
-
-        let response = match self.read_response().await {
-            Result::Ok(response) => response,
+        let result = self.open_new_session_impl(session, fds).await;
+        let (response, request_id, session_id) = match result {
+            Result::Ok(result) => result,
             Err(err) => return Err((err, self)),
         };
 
-        let session_id = match response {
-            SessionOpened { response_id, session_id } => {
-                if let Err(err) = Self::check_response_id(request_id, response_id) {
-                    return Err((err, self));
-                }
-                session_id
-            },
-            PermissionDenied { response_id, reason } => {
-                if let Err(err) = Self::check_response_id(request_id, response_id) {
-                    return Err((err, self));
-                }
-                return Err((Error::PermissionDenied(reason), self))
-            },
-            Failure { response_id, reason } => {
-                if let Err(err) = Self::check_response_id(request_id, response_id) {
-                    return Err((err, self));
-                }
-                return Err((Error::RequestFailure(reason), self))
-            },
-            _ => return Err((
-                Error::InvalidServerResponse(
-                    "Expected Response: SessionOpened, PermissionDenied or Failure"
-                ),
-                self
-            )),
-        };
-
-        if let Err(err) = self.raw_conn.send_fds(&fds[..]) {
-            return Err((err, self));
-        }
-
-        let response = match self.read_response().await {
-            Result::Ok(response) => response,
-            Err(err) => return Err((err, self)),
-        };
-
-        if let Ok { response_id } = response {
+        if let Response::Ok { response_id } = response {
             if let Err(err) = Self::check_response_id(request_id, response_id) {
                 Err((err, self))
             } else {
-                Result::Ok(EstablishedSession {
+                Ok(EstablishedSession {
                     conn: self,
                     session_id,
                 })
