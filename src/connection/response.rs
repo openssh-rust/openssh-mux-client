@@ -13,23 +13,23 @@ pub enum Response {
     Hello { version: u32 },
 
     Alive {
-        request_id: u32,
+        response_id: u32,
         server_pid: u32,
     },
 
-    Ok { request_id: u32 },
+    Ok { response_id: u32 },
     Failure {
-        request_id: u32,
+        response_id: u32,
         reason: String,
     },
 
     PermissionDenied {
-        request_id: u32,
+        response_id: u32,
         reason: String,
     },
 
     SessionOpened {
-        request_id: u32,
+        response_id: u32,
         session_id: u32,
     },
     ExitMessage {
@@ -39,7 +39,7 @@ pub enum Response {
     TtyAllocFail { session_id: u32 },
 
     RemotePort {
-        request_id: u32,
+        response_id: u32,
         remote_port: u32,
     },
 }
@@ -88,32 +88,32 @@ impl<'de> Visitor<'de> for ResponseVisitor {
             MUX_S_ALIVE => {
                 let tup: (u32, u32) = accessor.newtype_variant_seed(PhantomData)?;
                 Ok(Response::Alive {
-                    request_id: tup.0,
+                    response_id: tup.0,
                     server_pid: tup.1,
                 })
             },
             MUX_S_OK => {
-                let request_id: u32 = accessor.newtype_variant_seed(PhantomData)?;
-                Ok(Response::Ok { request_id })
+                let response_id: u32 = accessor.newtype_variant_seed(PhantomData)?;
+                Ok(Response::Ok { response_id })
             },
             MUX_S_FAILURE => {
                 let tup: (u32, String) = accessor.newtype_variant_seed(PhantomData)?;
                 Ok(Response::Failure {
-                    request_id: tup.0,
+                    response_id: tup.0,
                     reason: tup.1,
                 })
             },
             MUX_S_PERMISSION_DENIED => {
                 let tup: (u32, String) = accessor.newtype_variant_seed(PhantomData)?;
                 Ok(Response::PermissionDenied {
-                    request_id: tup.0,
+                    response_id: tup.0,
                     reason: tup.1,
                 })
             },
             MUX_S_SESSION_OPENED => {
                 let tup: (u32, u32) = accessor.newtype_variant_seed(PhantomData)?;
                 Ok(Response::SessionOpened {
-                    request_id: tup.0,
+                    response_id: tup.0,
                     session_id: tup.1,
                 })
             },
@@ -131,7 +131,7 @@ impl<'de> Visitor<'de> for ResponseVisitor {
             MUX_S_REMOTE_PORT => {
                 let tup: (u32, u32) = accessor.newtype_variant_seed(PhantomData)?;
                 Ok(Response::RemotePort {
-                    request_id: tup.0,
+                    response_id: tup.0,
                     remote_port: tup.1,
                 })
             },

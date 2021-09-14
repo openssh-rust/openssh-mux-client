@@ -66,8 +66,8 @@ impl Connection {
         request_id
     }
 
-    fn check_response_id(request_id: u32, server_request_id: u32) -> Result<()> {
-        if request_id != server_request_id {
+    fn check_response_id(request_id: u32, response_id: u32) -> Result<()> {
+        if request_id != response_id {
             Err(Error::UnmatchedRequestId)
         } else {
             Ok(())
@@ -105,8 +105,8 @@ impl Connection {
         self.write(&Request::AliveCheck { request_id }).await?;
 
         let response = self.read_response().await?;
-        if let Response::Alive { request_id: server_request_id, server_pid } = response {
-            Self::check_response_id(request_id, server_request_id)?;
+        if let Response::Alive { response_id, server_pid } = response {
+            Self::check_response_id(request_id, response_id)?;
             Ok(server_pid)
         } else {
             Err(Error::InvalidServerResponse("Expected Response::Alive"))
@@ -124,16 +124,16 @@ impl Connection {
         self.write(&Request::NewSession { request_id, reserved, session }).await?;
 
         let session_id = match self.read_response().await? {
-            SessionOpened { request_id: server_request_id, session_id } => {
-                Self::check_response_id(request_id, server_request_id)?;
+            SessionOpened { response_id, session_id } => {
+                Self::check_response_id(request_id, response_id)?;
                 session_id
             },
-            PermissionDenied { request_id: server_request_id, reason } => {
-                Self::check_response_id(request_id, server_request_id)?;
+            PermissionDenied { response_id, reason } => {
+                Self::check_response_id(request_id, response_id)?;
                 return Err(Error::PermissionDenied(reason))
             },
-            Failure { request_id: server_request_id, reason } => {
-                Self::check_response_id(request_id, server_request_id)?;
+            Failure { response_id, reason } => {
+                Self::check_response_id(request_id, response_id)?;
                 return Err(Error::RequestFailure(reason))
             },
             _ => return Err(Error::InvalidServerResponse(
@@ -143,8 +143,8 @@ impl Connection {
 
         self.raw_conn.send_fds(&fds[..])?;
 
-        if let Ok { request_id: server_request_id } = self.read_response().await? {
-            Self::check_response_id(request_id, server_request_id)?;
+        if let Ok { response_id } = self.read_response().await? {
+            Self::check_response_id(request_id, response_id)?;
             Result::Ok(EstablishedSession {
                 conn: self,
                 session_id,
