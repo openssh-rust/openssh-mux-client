@@ -8,6 +8,7 @@ use request::Request;
 use response::Response;
 use raw_connection::RawConnection;
 
+use core::num::Wrapping;
 use core::convert::AsRef;
 use core::mem;
 use std::path::Path;
@@ -23,6 +24,7 @@ pub struct Connection {
     serializer: Serializer,
     /// Buffer for input from the server
     buffer: Vec<u8>,
+    request_id: Wrapping<u32>,
 }
 impl Connection {
     async fn write(&mut self, value: &Request<'_>) -> Result<()> {
@@ -53,16 +55,24 @@ impl Connection {
         self.read_and_deserialize(len as usize).await
     }
 
+    fn get_request_id(&mut self) -> u32 {
+        let request_id = self.request_id.0;
+        self.request_id += Wrapping(1);
+
+        request_id
+    }
+
     pub async fn connect<P: AsRef<Path>>(path: P) -> Result<Self> {
         let mut conn = Self {
             raw_conn: RawConnection::connect(path).await?,
             serializer: Serializer::new(),
             buffer: Vec::with_capacity(mem::size_of::<Response>()),
+            request_id: Wrapping(0),
         };
 
         conn.write(&Request::Hello { version: constants::SSHMUX_VER }).await?;
-        let response = conn.read_response().await?;
 
+        let response = conn.read_response().await?;
         if let Response::Hello { version } = response {
             if version != constants::SSHMUX_VER {
                 Err(Error::UnsupportedMuxProtocol)
@@ -74,4 +84,21 @@ impl Connection {
         }
     }
 
+    /// Return pid of the ssh mux server.
+    pub async fn send_alive_check(&mut self) -> Result<u32> {
+        let request_id = self.get_request_id();
+
+        self.write(&Request::AliveCheck { request_id }).await?;
+
+        let response = self.read_response().await?;
+        if let Response::Alive { request_id: server_request_id, server_pid } = response {
+            if request_id != server_request_id {
+                Err(Error::UnmatchedRequestId)
+            } else {
+                Ok(server_pid)
+            }
+        } else {
+            Err(Error::InvalidServerResponse("Expected Response::Alive"))
+        }
+    }
 }
