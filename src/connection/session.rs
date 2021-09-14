@@ -5,40 +5,57 @@ pub struct EstablishedSession {
     pub(super) session_id: u32,
 }
 impl EstablishedSession {
-    fn check_session_id(&self, session_id: u32) -> Result<()> {
-        if self.session_id != session_id {
-            Err(Error::UnmatchedSessionId)
-        } else {
-            Ok(())
-        }
-    }
-
     /// Wait for session status to change
-    pub async fn wait(mut self) -> Result<SessionStatus> {
+    ///
+    /// Return `Self` on error so that you can handle the error and restart
+    /// the operation.
+    pub async fn wait(mut self) -> Result<SessionStatus, (Error, Self)> {
         use Response::*;
 
-        match self.conn.read_response().await? {
+        let response = match self.conn.read_response().await {
+            Result::Ok(response) => response,
+            Err(err) => return Err((err, self)),
+        };
+
+        match response {
             TtyAllocFail { session_id } => {
-                self.check_session_id(session_id)?;
-                Result::Ok(SessionStatus::TtyAllocFail(self))
+                if self.session_id != session_id {
+                    Err((Error::UnmatchedSessionId, self))
+                } else {
+                    Result::Ok(SessionStatus::TtyAllocFail(self))
+                }
             },
             ExitMessage { session_id, exit_value } => {
-                self.check_session_id(session_id)?;
-                Result::Ok(SessionStatus::Exited {
-                    conn: self.conn,
-                    exit_value,
-                })
+                if self.session_id != session_id {
+                    Err((Error::UnmatchedSessionId, self))
+                } else {
+                    Result::Ok(SessionStatus::Exited {
+                        conn: self.conn,
+                        exit_value,
+                    })
+                }
             },
-            _ => Err(Error::InvalidServerResponse(
-                "Expected Response TtyAllocFail or ExitMessage"
+            _ => Err((
+                Error::InvalidServerResponse(
+                    "Expected Response TtyAllocFail or ExitMessage"
+                ),
+                self
             ))
         }
     }
 }
 
 pub enum SessionStatus {
+    /// Remote ssh server failed to allocate a tty, you can now return the tty
+    /// to cooked mode.
+    ///
+    /// This arm includes `EstablishedSession` so that you can call `wait` on it
+    /// again and retrieve the exit status and the underlying connection.
     TtyAllocFail(EstablishedSession),
+
+    /// The process on the remote machine has exited with `exit_value`.
     Exited {
+        /// Return the connection so that you can reuse it.
         conn: Connection,
         exit_value: u32,
     },
