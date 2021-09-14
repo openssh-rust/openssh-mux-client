@@ -16,8 +16,12 @@ use std::path::Path;
 use serde::{Serialize, Deserialize};
 use ssh_mux_format::{Serializer, from_bytes};
 
+pub use std::os::unix::io::RawFd;
+
 pub use error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
+
+pub use request::Session;
 
 pub struct Connection {
     raw_conn: RawConnection,
@@ -62,6 +66,14 @@ impl Connection {
         request_id
     }
 
+    fn check_response_id(request_id: u32, server_request_id: u32) -> Result<()> {
+        if request_id != server_request_id {
+            Err(Error::UnmatchedRequestId)
+        } else {
+            Ok(())
+        }
+    }
+
     pub async fn connect<P: AsRef<Path>>(path: P) -> Result<Self> {
         let mut conn = Self {
             raw_conn: RawConnection::connect(path).await?,
@@ -92,13 +104,56 @@ impl Connection {
 
         let response = self.read_response().await?;
         if let Response::Alive { request_id: server_request_id, server_pid } = response {
-            if request_id != server_request_id {
-                Err(Error::UnmatchedRequestId)
-            } else {
-                Ok(server_pid)
-            }
+            Self::check_response_id(request_id, server_request_id)?;
+            Ok(server_pid)
         } else {
             Err(Error::InvalidServerResponse("Expected Response::Alive"))
         }
     }
+
+    pub async fn open_new_session(mut self, session: &Session<'_>, fds: &[RawFd; 3])
+        -> Result<EstablishedSession>
+    {
+        use Response::*;
+
+        let request_id = self.get_request_id();
+
+        let reserved = "";
+        self.write(&Request::NewSession { request_id, reserved, session }).await?;
+
+        let session_id = match self.read_response().await? {
+            SessionOpened { request_id: server_request_id, session_id } => {
+                Self::check_response_id(request_id, server_request_id)?;
+                session_id
+            },
+            PermissionDenied { request_id: server_request_id, reason } => {
+                Self::check_response_id(request_id, server_request_id)?;
+                return Err(Error::PermissionDenied(reason))
+            },
+            Failure { request_id: server_request_id, reason } => {
+                Self::check_response_id(request_id, server_request_id)?;
+                return Err(Error::RequestFailure(reason))
+            },
+            _ => return Err(Error::InvalidServerResponse(
+                "Expected Response: SessionOpened, PermissionDenied or Failure"
+            )),
+        };
+
+        self.raw_conn.send_fds(&fds[..])?;
+
+        if let Ok { request_id: server_request_id } = self.read_response().await? {
+            Self::check_response_id(request_id, server_request_id)?;
+            Result::Ok(EstablishedSession {
+                conn: self,
+                session_id,
+            })
+        } else {
+            Err(Error::InvalidServerResponse("Expected Response::Ok"))
+        }
+    }
+}
+
+pub struct EstablishedSession {
+    conn: Connection,
+    session_id: u32,
 }
