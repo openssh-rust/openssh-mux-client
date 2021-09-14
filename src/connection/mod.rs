@@ -342,4 +342,13 @@ mod tests {
     async fn test_connect_impl(_conn: Connection) {
     }
     run_test!(test_connect, test_connect_impl);
+
+    async fn test_alive_check_impl(mut conn: Connection) {
+        let expected_pid = std::env::var("ControlMasterPID").unwrap();
+        let expected_pid: u32 = expected_pid.parse().unwrap();
+
+        let actual_pid = conn.send_alive_check().await.unwrap().get();
+        assert_eq!(expected_pid, actual_pid);
+    }
+    run_test!(test_alive_check, test_alive_check_impl);
 }
