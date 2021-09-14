@@ -339,7 +339,7 @@ mod tests {
         }
     }
 
-    async fn test_connect_impl(conn: Connection) {
+    async fn test_connect_impl(_conn: Connection) {
     }
     run_test!(test_connect, test_connect_impl);
 }
