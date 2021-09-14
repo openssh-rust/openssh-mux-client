@@ -191,7 +191,7 @@ impl<'a> Serialize for Fwd<'a> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Socket<'a> {
     UnixSocket {
         path: &'a str,
