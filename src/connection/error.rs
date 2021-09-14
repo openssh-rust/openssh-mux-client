@@ -8,13 +8,14 @@ use super::{constants, Response};
 pub enum Error {
     UnsupportedMuxProtocol,
     InvalidServerResponse(&'static str, Response),
+    InvalidPort,
+    InvalidPid,
     UnmatchedRequestId,
     UnmatchedSessionId,
     IOError(io::Error),
     FormatError(ssh_mux_format::Error),
     RequestFailure(String),
     PermissionDenied(String),
-    InvalidPort,
 }
 
 impl From<io::Error> for Error {
@@ -46,6 +47,8 @@ impl fmt::Display for Error {
                 )),
             InvalidPort =>
                 formatter.write_str("Invalid port from the server: Port must not be 0"),
+            InvalidPid =>
+                formatter.write_str("Invalid pid from the server: Pid must not be 0"),
             IOError(err) =>
                 formatter.write_fmt(format_args!("IO Error: {:#?}", err)),
             FormatError(err) =>
