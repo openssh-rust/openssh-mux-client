@@ -123,6 +123,13 @@ impl Connection {
         }
     }
 
+    /// Consumes `self` so that users would not be able to create multiple sessions
+    /// or perform other operations during the session that might complicates the
+    /// handling of packets received from the ssh mux server.
+    ///
+    /// The return value `EstablishedSession` will contain the moved `self`, which once
+    /// the session has exited, you can get back this `Connection` and reused it.
+    ///
     /// Return `Self` so that you can handle the error and reuse
     /// the `Connection`.
     pub async fn open_new_session(mut self, session: &Session<'_>, fds: &[RawFd; 3])

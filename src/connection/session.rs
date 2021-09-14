@@ -1,5 +1,7 @@
 use super::{Connection, Error, Result, Response};
 
+/// `EstablishedSession` contains the moved `Connection`, which once the session
+/// has exited, you can get back this `Connection` and reused it.
 pub struct EstablishedSession {
     pub(super) conn: Connection,
     pub(super) session_id: u32,
