@@ -14,6 +14,7 @@ pub enum Error {
     FormatError(ssh_mux_format::Error),
     RequestFailure(String),
     PermissionDenied(String),
+    InvalidPort,
 }
 
 impl From<io::Error> for Error {
@@ -39,6 +40,8 @@ impl fmt::Display for Error {
                 )),
             InvalidServerResponse(msg) =>
                 formatter.write_fmt(format_args!("Invalid server response: {:#?}", msg)),
+            InvalidPort =>
+                formatter.write_str("Invalid port from the server: Port must not be 0"),
             IOError(err) =>
                 formatter.write_fmt(format_args!("IO Error: {:#?}", err)),
             FormatError(err) =>
