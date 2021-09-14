@@ -1,3 +1,4 @@
+use core::num::NonZeroU32;
 use serde::{Serialize, ser::Serializer};
 use typed_builder::TypedBuilder;
 use super::constants;
@@ -190,7 +191,7 @@ impl<'a> Serialize for Fwd<'a> {
 #[derive(Copy, Clone, Debug)]
 pub enum Socket<'a> {
     UnixSocket(&'a str),
-    TcpSocket(&'a str, u32),
+    TcpSocket(&'a str, NonZeroU32),
 }
 impl<'a> Serialize for Socket<'a> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -200,7 +201,7 @@ impl<'a> Serialize for Socket<'a> {
 
         let value = match self {
             UnixSocket(path) => (*path, unix_socket_port as u32),
-            TcpSocket(host, port) => (*host, *port),
+            TcpSocket(host, port) => (*host, port.get()),
         };
 
         value.serialize(serializer)
