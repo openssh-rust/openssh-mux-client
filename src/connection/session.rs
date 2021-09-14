@@ -48,6 +48,7 @@ impl EstablishedSession {
     }
 }
 
+#[derive(Debug)]
 pub enum SessionStatus {
     /// Remote ssh server failed to allocate a tty, you can now return the tty
     /// to cooked mode.
