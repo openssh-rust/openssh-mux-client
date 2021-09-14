@@ -123,8 +123,9 @@ impl Connection {
         }
     }
 
+    /// Return session_id
     async fn open_new_session_impl(&mut self, session: &Session<'_>, fds: &[RawFd; 3])
-        -> Result<(Response, u32, u32)>
+        -> Result<u32>
     {
         use Response::*;
 
@@ -153,7 +154,12 @@ impl Connection {
 
         self.raw_conn.send_fds(&fds[..])?;
 
-        Result::Ok((self.read_response().await?, request_id, session_id))
+        if let Response::Ok { response_id } = self.read_response().await? {
+            Self::check_response_id(request_id, response_id)?;
+            Result::Ok(session_id)
+        } else {
+            Err(Error::InvalidServerResponse("Expected Response::Ok"))
+        }
     }
 
     /// Consumes `self` so that users would not be able to create multiple sessions
@@ -168,23 +174,12 @@ impl Connection {
     pub async fn open_new_session(mut self, session: &Session<'_>, fds: &[RawFd; 3])
         -> Result<EstablishedSession, (Error, Self)>
     {
-        let result = self.open_new_session_impl(session, fds).await;
-        let (response, request_id, session_id) = match result {
-            Result::Ok(result) => result,
-            Err(err) => return Err((err, self)),
-        };
-
-        if let Response::Ok { response_id } = response {
-            if let Err(err) = Self::check_response_id(request_id, response_id) {
-                Err((err, self))
-            } else {
-                Ok(EstablishedSession {
-                    conn: self,
-                    session_id,
-                })
-            }
-        } else {
-            Err((Error::InvalidServerResponse("Expected Response::Ok"), self))
+        match self.open_new_session_impl(session, fds).await {
+            Ok(session_id) => Ok(EstablishedSession {
+                conn: self,
+                session_id
+            }),
+            Err(err) => Err((err, self)),
         }
     }
 
