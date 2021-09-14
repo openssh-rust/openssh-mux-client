@@ -36,7 +36,7 @@ pub enum Request<'a> {
         /// Must be set to empty string
         reserved:  &'static str,
 
-        session: Session<'a>,
+        session: &'a Session<'a>,
     },
 
     /// A server may reply with `Response::Ok`, `Response::RemotePort`,
@@ -85,7 +85,7 @@ impl<'a> Serialize for Request<'a> {
                     "Request",
                     MUX_C_NEW_SESSION,
                     "NewSession",
-                    &(*request_id, *reserved, *session)
+                    &(*request_id, reserved, *session)
                 )
             },
             OpenFwd { request_id, fwd } =>
