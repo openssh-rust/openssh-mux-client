@@ -9,3 +9,6 @@ ssh_mux_format = "0.4.3"
 passfd = "0.1.4"
 tokio = { version = "1.11.0", features = ["net"] }
 typed-builder = "0.9.1"
+
+[dev-dependencies]
+tokio = { version = "1.11.0", features = ["rt", "macros"] }
