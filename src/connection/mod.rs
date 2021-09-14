@@ -7,6 +7,7 @@ mod raw_connection;
 use request::Request;
 use response::Response;
 use raw_connection::RawConnection;
+use request::Fwd;
 
 use core::num::Wrapping;
 use core::convert::AsRef;
@@ -21,7 +22,7 @@ pub use std::os::unix::io::RawFd;
 pub use error::Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub use request::Session;
+pub use request::{Session, Socket};
 
 #[derive(Debug)]
 pub struct Connection {
@@ -154,6 +155,52 @@ impl Connection {
             Err(Error::InvalidServerResponse("Expected Response::Ok"))
         }
     }
+
+    pub async fn request_port_forward(
+        &mut self,
+        forward_type: ForwardType,
+        listen_socket: &Socket<'_>,
+        connect_socket: &Socket<'_>
+    ) -> Result<()> {
+        use ForwardType::*;
+        use Response::*;
+
+        let fwd = match forward_type {
+            Local => {
+                Fwd::Local {
+                    listen_socket,
+                    connect_socket,
+                }
+            },
+            Remote => {
+                Fwd::Remote {
+                    listen_socket,
+                    connect_socket,
+                }
+            },
+        };
+        let fwd = &fwd;
+
+        let request_id = self.get_request_id();
+        self.write(&Request::OpenFwd { request_id, fwd }).await?;
+
+        match self.read_response().await? {
+            Ok { response_id } => {
+                Self::check_response_id(request_id, response_id)
+            },
+            PermissionDenied { response_id, reason } => {
+                Self::check_response_id(request_id, response_id)?;
+                Err(Error::PermissionDenied(reason))
+            },
+            Failure { response_id, reason } => {
+                Self::check_response_id(request_id, response_id)?;
+                Err(Error::RequestFailure(reason))
+            },
+            _ => Err(Error::InvalidServerResponse(
+                "Expected Response: Ok, PermissionDenied or Failure"
+            )),
+        }
+    }
 }
 
 pub struct EstablishedSession {
@@ -198,4 +245,10 @@ pub enum SessionStatus {
         conn: Connection,
         exit_value: u32,
     },
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum ForwardType {
+    Local,
+    Remote,
 }
