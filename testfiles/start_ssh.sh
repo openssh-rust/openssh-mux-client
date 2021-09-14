@@ -20,5 +20,7 @@ for each in 1 2 3 4 5; do
         -o ControlPath=/tmp/openssh-mux-client-test.socket \
         -o ControlPersist=yes \
         -F none \
+        -E ssh_log \
+        -o LogLevel=info \
         $options
 done
