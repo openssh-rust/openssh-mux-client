@@ -293,44 +293,33 @@ impl Connection {
         }
     }
 
+    async fn request_terminate_impl(&mut self) -> Result<()> {
+        use Response::*;
+
+        let request_id = self.get_request_id();
+        self.write(&Request::Terminate { request_id }).await?;
+
+        match self.read_response().await? {
+            Ok { response_id } => {
+                Self::check_response_id(request_id, response_id)?;
+                Result::Ok(())
+            },
+            PermissionDenied { response_id, reason } => {
+                Self::check_response_id(request_id, response_id)?;
+                Err(Error::PermissionDenied(reason))
+            },
+            _ => Err(Error::InvalidServerResponse(
+                    "Expected Response: Ok or PermissionDenied"
+                )),
+        }
+    }
+
     /// Request the master to terminate immediately.
     ///
     /// Return `Self` so that you can handle the error and reuse
     /// the `Connection`.
     pub async fn request_terminate(mut self) -> Result<(), (Error, Self)> {
-        use Response::*;
-
-        let request_id = self.get_request_id();
-        if let Err(err) = self.write(&Request::Terminate { request_id }).await {
-            return Err((err, self));
-        }
-
-        let response = match self.read_response().await {
-            Result::Ok(response) => response,
-            Err(err) => return Err((err, self)),
-        };
-
-        match response {
-            Ok { response_id } => {
-                if let Err(err) = Self::check_response_id(request_id, response_id) {
-                    Err((err, self))
-                } else {
-                    Result::Ok(())
-                }
-            },
-            PermissionDenied { response_id, reason } => {
-                if let Err(err) = Self::check_response_id(request_id, response_id) {
-                    Err((err, self))
-                } else {
-                    Err((Error::PermissionDenied(reason), self))
-                }
-            },
-            _ => Err((
-                    Error::InvalidServerResponse(
-                        "Expected Response: Ok or PermissionDenied"
-                    ),
-                    self
-                )),
-        }
+        self.request_terminate_impl().await
+            .map_err(|err| (err, self))
     }
 }
