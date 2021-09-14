@@ -9,7 +9,7 @@ use response::Response;
 use raw_connection::RawConnection;
 use request::Fwd;
 
-use core::num::Wrapping;
+use core::num::{Wrapping, NonZeroU32};
 use core::convert::AsRef;
 use core::mem;
 use std::path::Path;
@@ -204,7 +204,7 @@ impl Connection {
 
     /// Return remote port opened for dynamic forwarding.
     pub async fn request_dynamic_forward(&mut self, listen_socket: &Socket<'_>)
-        -> Result<u32>
+        -> Result<NonZeroU32>
     {
         use Response::*;
 
@@ -217,7 +217,8 @@ impl Connection {
         match self.read_response().await? {
             RemotePort { response_id, remote_port } => {
                 Self::check_response_id(request_id, response_id)?;
-                Result::Ok(remote_port)
+                NonZeroU32::new(remote_port)
+                    .ok_or(Error::InvalidPort)
             },
             PermissionDenied { response_id, reason } => {
                 Self::check_response_id(request_id, response_id)?;
