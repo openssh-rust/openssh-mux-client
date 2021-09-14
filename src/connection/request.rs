@@ -46,7 +46,7 @@ pub enum Request<'a> {
     /// `Request::RemotePort`.
     OpenFwd {
         request_id: u32,
-        fwd: Fwd<'a>,
+        fwd: &'a Fwd<'a>,
     },
 
     /// A client may request the master to stop accepting new multiplexing requests
