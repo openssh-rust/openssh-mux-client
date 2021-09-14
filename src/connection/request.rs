@@ -114,7 +114,7 @@ impl<'a> Serialize for Request<'a> {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, TypedBuilder)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, TypedBuilder)]
 #[builder(doc)]
 pub struct Session<'a> {
     #[builder(default = false)]
