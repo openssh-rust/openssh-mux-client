@@ -80,7 +80,7 @@ impl Connection {
                 Ok(conn)
             }
         } else {
-            Err(Error::InvalidServerResponse("expected Hello message"))
+            Err(Error::InvalidServerResponse("Expected Hello message"))
         }
     }
 
