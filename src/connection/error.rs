@@ -8,6 +8,7 @@ use super::constants;
 pub enum Error {
     UnsupportedMuxProtocol,
     InvalidServerResponse(&'static str),
+    UnmatchedRequestId,
     IOError(io::Error),
     FormatError(ssh_mux_format::Error),
 }
@@ -42,6 +43,10 @@ impl fmt::Display for Error {
                     "Error in (de)serialization: {:#?}",
                     err
                 )),
+            UnmatchedRequestId =>
+                formatter.write_str(
+                    "The request_id server response with doesn't match the request"
+                ),
         }
     }
 }
