@@ -190,8 +190,13 @@ impl<'a> Serialize for Fwd<'a> {
 
 #[derive(Copy, Clone, Debug)]
 pub enum Socket<'a> {
-    UnixSocket(&'a str),
-    TcpSocket(&'a str, NonZeroU32),
+    UnixSocket {
+        path: &'a str,
+    },
+    TcpSocket {
+        port: NonZeroU32,
+        host: &'a str,
+    },
 }
 impl<'a> Serialize for Socket<'a> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -200,8 +205,8 @@ impl<'a> Serialize for Socket<'a> {
         let unix_socket_port = -2;
 
         let value = match self {
-            UnixSocket(path) => (*path, unix_socket_port as u32),
-            TcpSocket(host, port) => (*host, port.get()),
+            UnixSocket { path } => (*path, unix_socket_port as u32),
+            TcpSocket { port, host } => (*host, port.get()),
         };
 
         value.serialize(serializer)
