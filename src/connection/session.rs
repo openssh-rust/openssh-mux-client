@@ -38,9 +38,10 @@ impl EstablishedSession {
                     })
                 }
             },
-            _ => Err((
+            response => Err((
                 Error::InvalidServerResponse(
-                    "Expected Response TtyAllocFail or ExitMessage"
+                    "Expected Response TtyAllocFail or ExitMessage",
+                    response
                 ),
                 self
             ))
