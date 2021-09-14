@@ -143,15 +143,15 @@ pub struct Session<'a> {
 #[derive(Copy, Clone, Debug)]
 pub enum Fwd<'a> {
     Local {
-        listen_socket: Socket<'a>,
-        connect_socket: Socket<'a>,
+        listen_socket: &'a Socket<'a>,
+        connect_socket: &'a Socket<'a>,
     },
     Remote {
-        listen_socket: Socket<'a>,
-        connect_socket: Socket<'a>,
+        listen_socket: &'a Socket<'a>,
+        connect_socket: &'a Socket<'a>,
     },
     Dynamic {
-        listen_socket: Socket<'a>,
+        listen_socket: &'a Socket<'a>,
     },
 }
 impl<'a> Serialize for Fwd<'a> {
@@ -180,7 +180,7 @@ impl<'a> Serialize for Fwd<'a> {
                     "Fwd",
                     constants::MUX_FWD_DYNAMIC,
                     "Dynamic",
-                    listen_socket
+                    *listen_socket
                 )
             },
         }
