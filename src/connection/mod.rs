@@ -34,6 +34,9 @@ pub enum ForwardType {
     Remote,
 }
 
+/// # Cancel safety
+///
+/// All methods of this struct is not cancellation safe.
 #[derive(Debug)]
 pub struct Connection {
     raw_conn: RawConnection,
