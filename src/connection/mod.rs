@@ -375,11 +375,11 @@ mod tests {
         assert_eq!(data, &buffer);
     }
 
-    async fn test_open_new_session_impl(mut conn: Connection) {
+    async fn test_open_new_session_impl(conn: Connection) {
         let session = Session::builder()
             .cmd("/bin/cat")
             .build();
-        let mut established_session = {
+        let established_session = {
             // pipe() returns (PipeRead, PipeWrite)
             let mut stdios = [
                 pipe().unwrap(),
