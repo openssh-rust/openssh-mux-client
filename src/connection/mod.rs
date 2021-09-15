@@ -375,24 +375,32 @@ mod tests {
         assert_eq!(data, &buffer);
     }
 
-    async fn test_open_new_session_impl(conn: Connection) {
+    async fn create_remote_process(conn: Connection, cmd: &str)
+        -> (EstablishedSession, [(PipeRead, PipeWrite); 3])
+    {
         let session = Session::builder()
-            .cmd("/bin/cat")
+            .cmd(cmd)
             .build();
+
+        // pipe() returns (PipeRead, PipeWrite)
+        let stdios = [
+            pipe().unwrap(),
+            pipe().unwrap(),
+            pipe().unwrap(),
+        ];
+
+        let established_session = conn.open_new_session(
+            &session,
+            &[stdios[0].0.as_raw_fd(), stdios[1].1.as_raw_fd(), stdios[1].1.as_raw_fd()]
+        ).await.unwrap();
+
+        (established_session, stdios)
+    }
+
+    async fn test_open_new_session_impl(conn: Connection) {
         let established_session = {
-            // pipe() returns (PipeRead, PipeWrite)
-            let mut stdios = [
-                pipe().unwrap(),
-                pipe().unwrap(),
-                pipe().unwrap(),
-            ];
-            // Error:
-            // mm_receive_fd: no message header                                   
-            // mux_master_process_new_session: failed to receive fd 1 from client
-            let established_session = conn.open_new_session(
-                &session,
-                &[stdios[0].0.as_raw_fd(), stdios[1].1.as_raw_fd(), stdios[1].1.as_raw_fd()]
-            ).await.unwrap();
+            let (established_session, mut stdios) =
+                create_remote_process(conn, "/bin/cat").await;
 
             // All test data here must end with '\n', otherwise cat would output nothing
             // and the test would hang forever.
