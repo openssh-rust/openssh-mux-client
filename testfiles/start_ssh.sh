@@ -23,4 +23,9 @@ for each in 1 2 3 4 5; do
         -E ssh_log \
         -o LogLevel=info \
         $options
+    
+    exit_code=$?
+    if [ $exit_code -eq 0 ]; then
+        exit
+    fi
 done
