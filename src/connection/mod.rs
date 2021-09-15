@@ -5,6 +5,8 @@ mod response;
 mod raw_connection;
 mod session;
 
+pub mod default_config;
+
 use request::Request;
 use raw_connection::RawConnection;
 use request::Fwd;

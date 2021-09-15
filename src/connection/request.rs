@@ -1,7 +1,7 @@
 use core::num::NonZeroU32;
 use serde::{Serialize, ser::Serializer};
 use typed_builder::TypedBuilder;
-use super::constants;
+use super::{constants, default_config};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Request<'a> {
@@ -132,6 +132,7 @@ pub struct Session<'a> {
     pub escape_ch: char,
 
     /// Generally set to `$TERM`.
+    #[builder(default_code = r#"default_config::get_term()"#)]
     pub term: &'a str,
     pub cmd: &'a str,
 
