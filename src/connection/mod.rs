@@ -334,7 +334,8 @@ impl Connection {
 mod tests {
     use std::env;
     use std::os::unix::io::AsRawFd;
-    use tokio_pipe::pipe;
+    use tokio_pipe::{pipe, PipeRead, PipeWrite};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use super::*;
 
     macro_rules! run_test {
@@ -362,11 +363,24 @@ mod tests {
     }
     run_test!(test_alive_check, test_alive_check_impl);
 
+    async fn test_roundtrip<const SIZE: usize>(
+        stdios: &mut [(PipeRead, PipeWrite); 3],
+        data: &'static [u8; SIZE]
+    ) {
+        stdios[0].1.write_all(data).await.unwrap();
+
+        let mut buffer = [0 as u8; SIZE];
+        stdios[1].0.read_exact(&mut buffer).await.unwrap();
+            
+        assert_eq!(data, &buffer);
+    }
+
     async fn test_open_new_session_impl(mut conn: Connection) {
         let session = Session::builder()
             .cmd("/bin/cat")
             .build();
-        let stdios = [
+        // pipe() returns (PipeRead, PipeWrite)
+        let mut stdios = [
             pipe().unwrap(),
             pipe().unwrap(),
             pipe().unwrap(),
@@ -376,8 +390,14 @@ mod tests {
         // mux_master_process_new_session: failed to receive fd 1 from client
         let established_session = conn.open_new_session(
             &session,
-            &[stdios[0].1.as_raw_fd(), stdios[1].0.as_raw_fd(), stdios[1].1.as_raw_fd()]
+            &[stdios[0].0.as_raw_fd(), stdios[1].1.as_raw_fd(), stdios[1].1.as_raw_fd()]
         ).await.unwrap();
+
+        // All test data here must end with '\n', otherwise cat would output nothing
+        // and the test would hang forever.
+
+        test_roundtrip(&mut stdios, &b"0134131dqwdqdx13as\n").await;
+        test_roundtrip(&mut stdios, &b"Whats' Up?\n").await;
     }
     run_test!(test_open_new_session, test_open_new_session_impl);
 }
