@@ -364,37 +364,35 @@ mod tests {
     run_test!(test_alive_check, test_alive_check_impl);
 
     async fn test_roundtrip<const SIZE: usize>(
-        stdios: &mut [(PipeRead, PipeWrite); 3],
+        stdios: &mut (PipeWrite, PipeRead),
         data: &'static [u8; SIZE]
     ) {
-        stdios[0].1.write_all(data).await.unwrap();
+        stdios.0.write_all(data).await.unwrap();
 
         let mut buffer = [0 as u8; SIZE];
-        stdios[1].0.read_exact(&mut buffer).await.unwrap();
+        stdios.1.read_exact(&mut buffer).await.unwrap();
             
         assert_eq!(data, &buffer);
     }
 
     async fn create_remote_process(conn: Connection, cmd: &str)
-        -> (EstablishedSession, [(PipeRead, PipeWrite); 3])
+        -> (EstablishedSession, (PipeWrite, PipeRead))
     {
         let session = Session::builder()
             .cmd(cmd)
             .build();
 
         // pipe() returns (PipeRead, PipeWrite)
-        let stdios = [
-            pipe().unwrap(),
-            pipe().unwrap(),
-            pipe().unwrap(),
-        ];
+        let (stdin_read, stdin_write) = pipe().unwrap();
+        let (stdout_read, stdout_write) = pipe().unwrap();
+        let (_, stderr_write) = pipe().unwrap();
 
         let established_session = conn.open_new_session(
             &session,
-            &[stdios[0].0.as_raw_fd(), stdios[1].1.as_raw_fd(), stdios[1].1.as_raw_fd()]
+            &[stdin_read.as_raw_fd(), stdout_write.as_raw_fd(), stderr_write.as_raw_fd()]
         ).await.unwrap();
 
-        (established_session, stdios)
+        (established_session, (stdin_write, stdout_read))
     }
 
     async fn test_open_new_session_impl(conn: Connection) {
