@@ -398,18 +398,16 @@ mod tests {
     }
 
     async fn test_open_new_session_impl(conn: Connection) {
-        let established_session = {
-            let (established_session, mut stdios) =
-                create_remote_process(conn, "/bin/cat").await;
+        let (established_session, mut stdios) =
+            create_remote_process(conn, "/bin/cat").await;
 
-            // All test data here must end with '\n', otherwise cat would output nothing
-            // and the test would hang forever.
+        // All test data here must end with '\n', otherwise cat would output nothing
+        // and the test would hang forever.
 
-            test_roundtrip(&mut stdios, &b"0134131dqwdqdx13as\n").await;
-            test_roundtrip(&mut stdios, &b"Whats' Up?\n").await;
+        test_roundtrip(&mut stdios, &b"0134131dqwdqdx13as\n").await;
+        test_roundtrip(&mut stdios, &b"Whats' Up?\n").await;
 
-            established_session
-        };
+        drop(stdios);
 
         let session_status = established_session.wait().await.unwrap();
         assert_matches!(
