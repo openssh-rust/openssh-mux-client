@@ -379,25 +379,36 @@ mod tests {
         let session = Session::builder()
             .cmd("/bin/cat")
             .build();
-        // pipe() returns (PipeRead, PipeWrite)
-        let mut stdios = [
-            pipe().unwrap(),
-            pipe().unwrap(),
-            pipe().unwrap(),
-        ];
-        // Error:
-        // mm_receive_fd: no message header                                   
-        // mux_master_process_new_session: failed to receive fd 1 from client
-        let established_session = conn.open_new_session(
-            &session,
-            &[stdios[0].0.as_raw_fd(), stdios[1].1.as_raw_fd(), stdios[1].1.as_raw_fd()]
-        ).await.unwrap();
+        let mut established_session = {
+            // pipe() returns (PipeRead, PipeWrite)
+            let mut stdios = [
+                pipe().unwrap(),
+                pipe().unwrap(),
+                pipe().unwrap(),
+            ];
+            // Error:
+            // mm_receive_fd: no message header                                   
+            // mux_master_process_new_session: failed to receive fd 1 from client
+            let established_session = conn.open_new_session(
+                &session,
+                &[stdios[0].0.as_raw_fd(), stdios[1].1.as_raw_fd(), stdios[1].1.as_raw_fd()]
+            ).await.unwrap();
 
-        // All test data here must end with '\n', otherwise cat would output nothing
-        // and the test would hang forever.
+            // All test data here must end with '\n', otherwise cat would output nothing
+            // and the test would hang forever.
 
-        test_roundtrip(&mut stdios, &b"0134131dqwdqdx13as\n").await;
-        test_roundtrip(&mut stdios, &b"Whats' Up?\n").await;
+            test_roundtrip(&mut stdios, &b"0134131dqwdqdx13as\n").await;
+            test_roundtrip(&mut stdios, &b"Whats' Up?\n").await;
+
+            established_session
+        };
+
+        let session_status = established_session.wait().await.unwrap();
+        assert_matches!(
+            session_status,
+            SessionStatus::Exited { exit_value, .. }
+                if exit_value == 0
+        );
     }
     run_test!(test_open_new_session, test_open_new_session_impl);
 }
