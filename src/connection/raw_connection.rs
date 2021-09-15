@@ -52,9 +52,9 @@ impl RawConnection {
         Ok(())
     }
 
-    pub fn send_fds(&self, vals: &[RawFd]) -> Result<()> {
+    pub fn send_with_fds(&self, bytes: &[u8], vals: &[RawFd]) -> Result<()> {
         let stream_fd = AsRawFd::as_raw_fd(&self.stream);
-        SendWithFd::send_with_fd(&stream_fd, &[0], vals)?;
+        SendWithFd::send_with_fd(&stream_fd, bytes, vals)?;
         Ok(())
     }
 
