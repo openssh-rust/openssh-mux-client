@@ -4,7 +4,7 @@ use std::io;
 
 use tokio::net::UnixStream;
 
-use std::os::unix::io::AsRawFd;
+use std::os::unix::io::{AsRawFd, RawFd};
 use passfd::FdPassingExt;
 
 use super::Result;
@@ -52,10 +52,10 @@ impl RawConnection {
         Ok(())
     }
 
-    pub fn send_fds<T: AsRawFd>(&self, vals: &[T]) -> Result<()> {
+    pub fn send_fds(&self, vals: &[RawFd]) -> Result<()> {
         let stream_fd = AsRawFd::as_raw_fd(&self.stream);
         for val in vals {
-            FdPassingExt::send_fd(&stream_fd, AsRawFd::as_raw_fd(val))?;
+            FdPassingExt::send_fd(&stream_fd, *val)?;
         }
         Ok(())
     }
