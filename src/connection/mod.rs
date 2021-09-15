@@ -135,7 +135,9 @@ impl Connection {
         let request_id = self.get_request_id();
 
         self.write(&Request::NewSession { request_id, reserved: "", session }).await?;
-        self.raw_conn.send_fds(&fds[..])?;
+        for fd in fds {
+            self.raw_conn.send_with_fds(&[0], &[*fd])?;
+        }
 
         let session_id = match self.read_response().await? {
             SessionOpened { response_id, session_id } => {
@@ -327,6 +329,9 @@ impl Connection {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+    use std::os::unix::io::AsRawFd;
+    use tokio_pipe::pipe;
     use super::*;
 
     macro_rules! run_test {
@@ -346,11 +351,30 @@ mod tests {
     run_test!(test_connect, test_connect_impl);
 
     async fn test_alive_check_impl(mut conn: Connection) {
-        let expected_pid = std::env::var("ControlMasterPID").unwrap();
+        let expected_pid = env::var("ControlMasterPID").unwrap();
         let expected_pid: u32 = expected_pid.parse().unwrap();
 
         let actual_pid = conn.send_alive_check().await.unwrap().get();
         assert_eq!(expected_pid, actual_pid);
     }
     run_test!(test_alive_check, test_alive_check_impl);
+
+    async fn test_open_new_session_impl(mut conn: Connection) {
+        let session = Session::builder()
+            .cmd("/bin/cat")
+            .build();
+        let stdios = [
+            pipe().unwrap(),
+            pipe().unwrap(),
+            pipe().unwrap(),
+        ];
+        // Error:
+        // mm_receive_fd: no message header                                   
+        // mux_master_process_new_session: failed to receive fd 1 from client
+        let established_session = conn.open_new_session(
+            &session,
+            &[stdios[0].1.as_raw_fd(), stdios[1].0.as_raw_fd(), stdios[1].1.as_raw_fd()]
+        ).await.unwrap();
+    }
+    run_test!(test_open_new_session, test_open_new_session_impl);
 }
