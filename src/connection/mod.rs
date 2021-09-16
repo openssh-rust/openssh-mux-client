@@ -19,7 +19,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use ssh_mux_format::{from_bytes, Serializer};
 
-pub use std::os::unix::io::RawFd;
+use std::os::unix::io::RawFd;
 
 pub use error::Error;
 pub use response::Response;
