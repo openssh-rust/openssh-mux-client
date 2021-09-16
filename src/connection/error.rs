@@ -6,15 +6,34 @@ use super::{constants, Response};
 
 #[derive(Debug)]
 pub enum Error {
+    /// Server speaks a different multiple protocol.
     UnsupportedMuxProtocol,
+
+    /// Server response with unexpected package type.
     InvalidServerResponse(&'static str, Response),
+
+    /// Server response with port = 0.
     InvalidPort,
+
+    /// Server response with pid = 0.
     InvalidPid,
+
+    /// Server response with a different id than the requested one.
     UnmatchedRequestId,
+
+    /// Server response with a different session_id.
     UnmatchedSessionId,
+
+    /// IO Error (Excluding `EWOULDBLOCK`).
     IOError(io::Error),
+
+    /// Failed to serialize/deserialize the message using crate `ssh_mux_format`.
     FormatError(ssh_mux_format::Error),
+
+    /// Server refused the request with a reason.
     RequestFailure(String),
+
+    /// Server refused the request due to insufficient permission with a reason.
     PermissionDenied(String),
 }
 

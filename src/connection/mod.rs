@@ -121,7 +121,8 @@ impl Connection {
         .await
     }
 
-    /// Return pid of the ssh mux server.
+    /// Send a ping to the server and return pid of the ssh mux server
+    /// if it is still alive.
     pub async fn send_alive_check(&mut self) -> Result<NonZeroU32> {
         let request_id = self.get_request_id();
 
@@ -209,7 +210,8 @@ impl Connection {
     /// The return value `EstablishedSession` will contain the moved `self`, which once
     /// the session has exited, you can get back this `Connection` and reused it.
     ///
-    /// Return `Self` so that you can handle the error and reuse the `Connection`.
+    /// Return `Self` on `Err` so that you can handle the error
+    /// and reuse the `Connection`.
     pub async fn open_new_session(
         mut self,
         session: &Session<'_>,
@@ -224,6 +226,11 @@ impl Connection {
         }
     }
 
+    /// Request for local/remote port forwarding.
+    ///
+    /// # Warning
+    ///
+    /// Local port forwarding hasn't been tested yet.
     pub async fn request_port_forward(
         &mut self,
         forward_type: ForwardType,
@@ -271,7 +278,7 @@ impl Connection {
         }
     }
 
-    /// Return remote port opened for dynamic forwarding.
+    /// **UNTESTED** Return remote port opened for dynamic forwarding.
     pub async fn request_dynamic_forward(
         &mut self,
         listen_socket: &Socket<'_>,
@@ -313,8 +320,8 @@ impl Connection {
         }
     }
 
-    /// Request the master to stop accepting new multiplexing requests and remove its
-    /// listener socket.
+    /// **UNTESTED** Request the master to stop accepting new multiplexing requests
+    /// and remove its listener socket.
     pub async fn request_stop_listening(&mut self) -> Result<()> {
         use Response::*;
 
@@ -372,9 +379,9 @@ impl Connection {
         }
     }
 
-    /// Request the master to terminate immediately.
+    /// **UNTESTED** Request the master to terminate immediately.
     ///
-    /// Return `Self` so that you can handle the error and reuse
+    /// Return `Self` on `Err` so that you can handle the error and reuse
     /// the `Connection`.
     pub async fn request_terminate(mut self) -> Result<(), (Error, Self)> {
         self.request_terminate_impl()
