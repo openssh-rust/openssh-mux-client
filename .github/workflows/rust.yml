@@ -1,10 +1,16 @@
 name: Rust
 
-on: [push, pull_request]
-  paths-ignore:
-    - 'README.md'
-    - 'LICENSE'
-    - '.gitignore'
+on:
+  push:
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE'
+      - '.gitignore'
+  pull_request:
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE'
+      - '.gitignore'
 
 env:
   CARGO_TERM_COLOR: always
