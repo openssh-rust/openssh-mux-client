@@ -432,8 +432,7 @@ mod tests {
     }
     run_test!(test_open_new_session, test_open_new_session_impl);
 
-    async fn test_local_forward_tcp_socket_impl(mut conn0: Connection, conn1: Connection)
-    {
+    async fn test_socket_forward_impl(mut conn0: Connection, conn1: Connection) {
         let cmd = "/usr/bin/socat TCP-LISTEN:1234 STDOUT";
         let (established_session, mut stdios) =
             create_remote_process(conn1, cmd).await;
@@ -501,5 +500,5 @@ mod tests {
                 if exit_value == 0
         );
     }
-    run_test2!(test_local_forward_tcp_socket, test_local_forward_tcp_socket_impl);
+    run_test2!(test_socket_forward, test_socket_forward_impl);
 }
