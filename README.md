@@ -23,5 +23,13 @@ There are also two features that I didn't implement:
 
 While it is extremely likely there are bugs in my code, I think it is ready for testing.
 
+## Development
+
+To run tests, make sure you have bash, ssh and docker installed on your computer and run:
+
+```
+/path/to/repository/run_test.sh
+```
+
 [ssh_mux_format]: https://github.com/NobodyXu/ssh_mux_format
 [protocol doc]: https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.mux
