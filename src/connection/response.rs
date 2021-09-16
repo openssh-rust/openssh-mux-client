@@ -46,7 +46,7 @@ impl<'de> Deserialize<'de> for Response {
     }
 }
 
-pub struct ResponseVisitor;
+struct ResponseVisitor;
 impl<'de> Visitor<'de> for ResponseVisitor {
     type Value = Response;
 
