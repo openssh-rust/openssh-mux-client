@@ -453,9 +453,6 @@ mod tests {
         let mut buffer = [0 as u8; DATA.len()];
         output.read_exact(&mut buffer).await.unwrap();
 
-        // thread 'connection::tests::test_socket_forward' panicked at 'assertion failed: `(left == right)`
-        //  left: `[49, 10, 50, 10, 51, 10, 52, 10, 53, 10, 54, 10, 55, 10, 56, 10, 57, 10, 49, 48, 10]`,
-        // right: `[48, 10, 49, 10, 50, 10, 51, 10, 52, 10, 53, 10, 54, 10, 55, 10, 56, 10, 57, 10, 49]`', src/connection/mod.rs:457:9
         assert_eq!(DATA, &buffer);
 
         drop(output);
