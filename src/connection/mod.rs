@@ -352,20 +352,6 @@ mod tests {
         }
     }
 
-    macro_rules! run_test2 {
-        ( $test_name:ident, $func:ident ) => {
-            #[tokio::test(flavor = "current_thread")]
-            async fn $test_name() {
-                let path = "/tmp/openssh-mux-client-test.socket";
-
-                $func(
-                    Connection::connect(path).await.unwrap(),
-                    Connection::connect(path).await.unwrap()
-                ).await;
-            }
-        }
-    }
-
     async fn test_connect_impl(_conn: Connection) {
     }
     run_test!(test_connect, test_connect_impl);
@@ -432,11 +418,11 @@ mod tests {
     }
     run_test!(test_open_new_session, test_open_new_session_impl);
 
-    async fn test_socket_forward_impl(mut conn0: Connection, conn1: Connection) {
+    async fn test_socket_forward_impl(mut conn: Connection) {
         let path = "/tmp/openssh-local-forward.socket";
         let _ = remove_file(path); // Allow it to fail.
 
-        conn0.request_port_forward(
+        conn.request_port_forward(
             ForwardType::Remote,
             &Socket::UnixSocket { path },
             &Socket::TcpSocket {
@@ -446,8 +432,7 @@ mod tests {
         ).await.unwrap();
 
         let cmd = "/usr/bin/socat STDIN TCP:localhost:1234";
-        let (established_session, mut stdios) =
-            create_remote_process(conn1, cmd).await;
+        let (established_session, mut stdios) = create_remote_process(conn, cmd).await;
 
         let mut output = UnixStream::connect(path).await.unwrap();
 
@@ -479,5 +464,5 @@ mod tests {
                 if exit_value == 0
         );
     }
-    run_test2!(test_socket_forward, test_socket_forward_impl);
+    run_test!(test_socket_forward, test_socket_forward_impl);
 }
