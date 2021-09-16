@@ -4,7 +4,7 @@ use std::io;
 
 use tokio::net::UnixStream;
 
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::unix::io::RawFd;
 use sendfd::SendWithFd;
 
 use super::Result;
@@ -56,8 +56,7 @@ impl RawConnection {
     }
 
     pub fn send_with_fds(&self, bytes: &[u8], vals: &[RawFd]) -> Result<()> {
-        let stream_fd = AsRawFd::as_raw_fd(&self.stream);
-        SendWithFd::send_with_fd(&stream_fd, bytes, vals)?;
+        SendWithFd::send_with_fd(&self.stream, bytes, vals)?;
         Ok(())
     }
 
