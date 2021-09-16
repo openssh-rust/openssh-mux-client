@@ -5,7 +5,7 @@ edition = "2018"
 
 authors = ["Jiahao XU <Jiahao_XU@outlook.com>"]
 
-license = "GPLv2"
+license = "GPL-2.0"
 description = "Data format used to communicate with openssh mux server."
 repository = "https://github.com/NobodyXu/ssh_mux_format"
 
