@@ -1,28 +1,28 @@
 mod constants;
 mod error;
+mod raw_connection;
 mod request;
 mod response;
-mod raw_connection;
 mod session;
 
 pub mod default_config;
 
-use request::Request;
 use raw_connection::RawConnection;
 use request::Fwd;
+use request::Request;
 
-use core::num::{Wrapping, NonZeroU32};
 use core::convert::AsRef;
 use core::mem;
+use core::num::{NonZeroU32, Wrapping};
 use std::path::Path;
 
-use serde::{Serialize, Deserialize};
-use ssh_mux_format::{Serializer, from_bytes};
+use serde::{Deserialize, Serialize};
+use ssh_mux_format::{from_bytes, Serializer};
 
 pub use std::os::unix::io::RawFd;
 
-pub use response::Response;
 pub use error::Error;
+pub use response::Response;
 pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 
 pub use request::{Session, Socket};
@@ -57,7 +57,7 @@ impl Connection {
 
     async fn read_and_deserialize<'a, T>(&'a mut self, size: usize) -> Result<T>
     where
-        T: Deserialize<'a>
+        T: Deserialize<'a>,
     {
         self.buffer.resize(size, 0);
         self.raw_conn.read(&mut self.buffer).await?;
@@ -90,7 +90,10 @@ impl Connection {
     }
 
     async fn exchange_hello(mut self) -> Result<Self> {
-        self.write(&Request::Hello { version: constants::SSHMUX_VER }).await?;
+        self.write(&Request::Hello {
+            version: constants::SSHMUX_VER,
+        })
+        .await?;
 
         let response = self.read_response().await?;
         if let Response::Hello { version } = response {
@@ -100,7 +103,10 @@ impl Connection {
                 Ok(self)
             }
         } else {
-            Err(Error::InvalidServerResponse("Expected Hello message", response))
+            Err(Error::InvalidServerResponse(
+                "Expected Hello message",
+                response,
+            ))
         }
     }
 
@@ -110,7 +116,9 @@ impl Connection {
             serializer: Serializer::new(),
             buffer: Vec::with_capacity(mem::size_of::<Response>()),
             request_id: Wrapping(0),
-        }.exchange_hello().await
+        }
+        .exchange_hello()
+        .await
     }
 
     /// Return pid of the ssh mux server.
@@ -120,45 +128,69 @@ impl Connection {
         self.write(&Request::AliveCheck { request_id }).await?;
 
         let response = self.read_response().await?;
-        if let Response::Alive { response_id, server_pid } = response {
+        if let Response::Alive {
+            response_id,
+            server_pid,
+        } = response
+        {
             Self::check_response_id(request_id, response_id)?;
-            NonZeroU32::new(server_pid)
-                .ok_or(Error::InvalidPid)
+            NonZeroU32::new(server_pid).ok_or(Error::InvalidPid)
         } else {
-            Err(Error::InvalidServerResponse("Expected Response::Alive", response))
+            Err(Error::InvalidServerResponse(
+                "Expected Response::Alive",
+                response,
+            ))
         }
     }
 
     /// Return session_id
-    async fn open_new_session_impl(&mut self, session: &Session<'_>, fds: &[RawFd; 3])
-        -> Result<u32>
-    {
+    async fn open_new_session_impl(
+        &mut self,
+        session: &Session<'_>,
+        fds: &[RawFd; 3],
+    ) -> Result<u32> {
         use Response::*;
 
         let request_id = self.get_request_id();
 
-        self.write(&Request::NewSession { request_id, reserved: "", session }).await?;
+        self.write(&Request::NewSession {
+            request_id,
+            reserved: "",
+            session,
+        })
+        .await?;
         for fd in fds {
             self.raw_conn.send_with_fds(&[0], &[*fd])?;
         }
 
         let session_id = match self.read_response().await? {
-            SessionOpened { response_id, session_id } => {
+            SessionOpened {
+                response_id,
+                session_id,
+            } => {
                 Self::check_response_id(request_id, response_id)?;
                 session_id
-            },
-            PermissionDenied { response_id, reason } => {
+            }
+            PermissionDenied {
+                response_id,
+                reason,
+            } => {
                 Self::check_response_id(request_id, response_id)?;
-                return Err(Error::PermissionDenied(reason))
-            },
-            Failure { response_id, reason } => {
+                return Err(Error::PermissionDenied(reason));
+            }
+            Failure {
+                response_id,
+                reason,
+            } => {
                 Self::check_response_id(request_id, response_id)?;
-                return Err(Error::RequestFailure(reason))
-            },
-            response => return Err(Error::InvalidServerResponse(
-                "Expected Response: SessionOpened, PermissionDenied or Failure",
-                response
-            )),
+                return Err(Error::RequestFailure(reason));
+            }
+            response => {
+                return Err(Error::InvalidServerResponse(
+                    "Expected Response: SessionOpened, PermissionDenied or Failure",
+                    response,
+                ))
+            }
         };
 
         Result::Ok(session_id)
@@ -178,13 +210,15 @@ impl Connection {
     /// the session has exited, you can get back this `Connection` and reused it.
     ///
     /// Return `Self` so that you can handle the error and reuse the `Connection`.
-    pub async fn open_new_session(mut self, session: &Session<'_>, fds: &[RawFd; 3])
-        -> Result<EstablishedSession, (Error, Self)>
-    {
+    pub async fn open_new_session(
+        mut self,
+        session: &Session<'_>,
+        fds: &[RawFd; 3],
+    ) -> Result<EstablishedSession, (Error, Self)> {
         match self.open_new_session_impl(session, fds).await {
             Ok(session_id) => Ok(EstablishedSession {
                 conn: self,
-                session_id
+                session_id,
             }),
             Err(err) => Err((err, self)),
         }
@@ -194,23 +228,19 @@ impl Connection {
         &mut self,
         forward_type: ForwardType,
         listen_socket: &Socket<'_>,
-        connect_socket: &Socket<'_>
+        connect_socket: &Socket<'_>,
     ) -> Result<()> {
         use ForwardType::*;
         use Response::*;
 
         let fwd = match forward_type {
-            Local => {
-                Fwd::Local {
-                    listen_socket,
-                    connect_socket,
-                }
+            Local => Fwd::Local {
+                listen_socket,
+                connect_socket,
             },
-            Remote => {
-                Fwd::Remote {
-                    listen_socket,
-                    connect_socket,
-                }
+            Remote => Fwd::Remote {
+                listen_socket,
+                connect_socket,
             },
         };
         let fwd = &fwd;
@@ -219,28 +249,33 @@ impl Connection {
         self.write(&Request::OpenFwd { request_id, fwd }).await?;
 
         match self.read_response().await? {
-            Ok { response_id } => {
-                Self::check_response_id(request_id, response_id)
-            },
-            PermissionDenied { response_id, reason } => {
+            Ok { response_id } => Self::check_response_id(request_id, response_id),
+            PermissionDenied {
+                response_id,
+                reason,
+            } => {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::PermissionDenied(reason))
-            },
-            Failure { response_id, reason } => {
+            }
+            Failure {
+                response_id,
+                reason,
+            } => {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::RequestFailure(reason))
-            },
+            }
             response => Err(Error::InvalidServerResponse(
                 "Expected Response: Ok, PermissionDenied or Failure",
-                response
+                response,
             )),
         }
     }
 
     /// Return remote port opened for dynamic forwarding.
-    pub async fn request_dynamic_forward(&mut self, listen_socket: &Socket<'_>)
-        -> Result<NonZeroU32>
-    {
+    pub async fn request_dynamic_forward(
+        &mut self,
+        listen_socket: &Socket<'_>,
+    ) -> Result<NonZeroU32> {
         use Response::*;
 
         let fwd = Fwd::Dynamic { listen_socket };
@@ -250,22 +285,30 @@ impl Connection {
         self.write(&Request::OpenFwd { request_id, fwd }).await?;
 
         match self.read_response().await? {
-            RemotePort { response_id, remote_port } => {
+            RemotePort {
+                response_id,
+                remote_port,
+            } => {
                 Self::check_response_id(request_id, response_id)?;
-                NonZeroU32::new(remote_port)
-                    .ok_or(Error::InvalidPort)
-            },
-            PermissionDenied { response_id, reason } => {
+                NonZeroU32::new(remote_port).ok_or(Error::InvalidPort)
+            }
+            PermissionDenied {
+                response_id,
+                reason,
+            } => {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::PermissionDenied(reason))
-            },
-            Failure { response_id, reason } => {
+            }
+            Failure {
+                response_id,
+                reason,
+            } => {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::RequestFailure(reason))
-            },
+            }
             response => Err(Error::InvalidServerResponse(
                 "Expected Response: RemotePort, PermissionDenied or Failure",
-                response
+                response,
             )),
         }
     }
@@ -282,18 +325,24 @@ impl Connection {
             Ok { response_id } => {
                 Self::check_response_id(request_id, response_id)?;
                 Result::Ok(())
-            },
-            PermissionDenied { response_id, reason } => {
+            }
+            PermissionDenied {
+                response_id,
+                reason,
+            } => {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::PermissionDenied(reason))
-            },
-            Failure { response_id, reason } => {
+            }
+            Failure {
+                response_id,
+                reason,
+            } => {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::RequestFailure(reason))
-            },
+            }
             response => Err(Error::InvalidServerResponse(
                 "Expected Response: Ok, PermissionDenied or Failure",
-                response
+                response,
             )),
         }
     }
@@ -308,15 +357,18 @@ impl Connection {
             Ok { response_id } => {
                 Self::check_response_id(request_id, response_id)?;
                 Result::Ok(())
-            },
-            PermissionDenied { response_id, reason } => {
+            }
+            PermissionDenied {
+                response_id,
+                reason,
+            } => {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::PermissionDenied(reason))
-            },
+            }
             response => Err(Error::InvalidServerResponse(
-                    "Expected Response: Ok or PermissionDenied",
-                    response
-                )),
+                "Expected Response: Ok or PermissionDenied",
+                response,
+            )),
         }
     }
 
@@ -325,20 +377,21 @@ impl Connection {
     /// Return `Self` so that you can handle the error and reuse
     /// the `Connection`.
     pub async fn request_terminate(mut self) -> Result<(), (Error, Self)> {
-        self.request_terminate_impl().await
+        self.request_terminate_impl()
+            .await
             .map_err(|err| (err, self))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::env;
     use std::io;
     use std::os::unix::io::AsRawFd;
-    use tokio::net::TcpListener;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
     use tokio_pipe::{pipe, PipeRead, PipeWrite};
-    use super::*;
 
     macro_rules! run_test {
         ( $test_name:ident, $func:ident ) => {
@@ -349,11 +402,10 @@ mod tests {
 
                 $func(conn).await;
             }
-        }
+        };
     }
 
-    async fn test_connect_impl(_conn: Connection) {
-    }
+    async fn test_connect_impl(_conn: Connection) {}
     run_test!(test_connect, test_connect_impl);
 
     async fn test_alive_check_impl(mut conn: Connection) {
@@ -367,42 +419,43 @@ mod tests {
 
     async fn test_roundtrip<const SIZE: usize>(
         stdios: &mut (PipeWrite, PipeRead),
-        data: &'static [u8; SIZE]
+        data: &'static [u8; SIZE],
     ) {
         stdios.0.write_all(data).await.unwrap();
 
         let mut buffer = [0 as u8; SIZE];
         stdios.1.read_exact(&mut buffer).await.unwrap();
-            
+
         assert_eq!(data, &buffer);
     }
 
-    async fn create_remote_process(conn: Connection, cmd: &str)
-        -> (EstablishedSession, (PipeWrite, PipeRead))
-    {
-        let session = Session::builder()
-            .cmd(cmd)
-            .build();
+    async fn create_remote_process(
+        conn: Connection,
+        cmd: &str,
+    ) -> (EstablishedSession, (PipeWrite, PipeRead)) {
+        let session = Session::builder().cmd(cmd).build();
 
         // pipe() returns (PipeRead, PipeWrite)
         let (stdin_read, stdin_write) = pipe().unwrap();
         let (stdout_read, stdout_write) = pipe().unwrap();
 
-        let established_session = conn.open_new_session(
-            &session,
-            &[
-                stdin_read.as_raw_fd(),
-                stdout_write.as_raw_fd(),
-                io::stderr().as_raw_fd(),
-            ]
-        ).await.unwrap();
+        let established_session = conn
+            .open_new_session(
+                &session,
+                &[
+                    stdin_read.as_raw_fd(),
+                    stdout_write.as_raw_fd(),
+                    io::stderr().as_raw_fd(),
+                ],
+            )
+            .await
+            .unwrap();
 
         (established_session, (stdin_write, stdout_read))
     }
 
     async fn test_open_new_session_impl(conn: Connection) {
-        let (established_session, mut stdios) =
-            create_remote_process(conn, "/bin/cat").await;
+        let (established_session, mut stdios) = create_remote_process(conn, "/bin/cat").await;
 
         // All test data here must end with '\n', otherwise cat would output nothing
         // and the test would hang forever.
@@ -433,8 +486,10 @@ mod tests {
             &Socket::TcpSocket {
                 port: NonZeroU32::new(1234).unwrap(),
                 host: "127.0.0.1",
-            }
-        ).await.unwrap();
+            },
+        )
+        .await
+        .unwrap();
 
         eprintln!("Creating remote process");
         let cmd = format!("/usr/bin/socat OPEN:/data,rdonly UNIX-CONNECT:{}", path);
@@ -443,7 +498,7 @@ mod tests {
         eprintln!("Waiting for connection");
         let (mut output, _addr) = output_listener.accept().await.unwrap();
 
-        // All test data here must end with '\n', otherwise remote 
+        // All test data here must end with '\n', otherwise remote
         // command would output nothing and the test would hang forever.
 
         eprintln!("Reading");

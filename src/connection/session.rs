@@ -1,4 +1,4 @@
-use super::{Connection, Error, Result, Response};
+use super::{Connection, Error, Response, Result};
 
 /// `EstablishedSession` contains the moved `Connection`, which once the session
 /// has exited, you can get back this `Connection` and reused it.
@@ -28,16 +28,18 @@ impl EstablishedSession {
             TtyAllocFail { session_id } => {
                 self.check_session_id(session_id)?;
                 Result::Ok(None)
-            },
-            ExitMessage { session_id, exit_value } => {
+            }
+            ExitMessage {
+                session_id,
+                exit_value,
+            } => {
                 self.check_session_id(session_id)?;
                 Result::Ok(Some(exit_value))
-            },
-            response =>
-                Err(Error::InvalidServerResponse(
-                    "Expected Response TtyAllocFail or ExitMessage",
-                    response
-                )),
+            }
+            response => Err(Error::InvalidServerResponse(
+                "Expected Response TtyAllocFail or ExitMessage",
+                response,
+            )),
         }
     }
 
@@ -47,11 +49,10 @@ impl EstablishedSession {
     /// the operation.
     pub async fn wait(mut self) -> Result<SessionStatus, (Error, Self)> {
         match self.wait_impl().await {
-            Ok(Some(exit_value)) =>
-                Ok(SessionStatus::Exited {
-                    conn: self.conn,
-                    exit_value,
-                }),
+            Ok(Some(exit_value)) => Ok(SessionStatus::Exited {
+                conn: self.conn,
+                exit_value,
+            }),
             Ok(None) => Ok(SessionStatus::TtyAllocFail(self)),
             Err(err) => Err((err, self)),
         }

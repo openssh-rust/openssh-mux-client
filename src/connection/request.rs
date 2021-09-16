@@ -1,7 +1,7 @@
-use core::num::NonZeroU32;
-use serde::{Serialize, ser::Serializer};
-use typed_builder::TypedBuilder;
 use super::{constants, default_config};
+use core::num::NonZeroU32;
+use serde::{ser::Serializer, Serialize};
+use typed_builder::TypedBuilder;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Request<'a> {
@@ -33,20 +33,17 @@ pub enum Request<'a> {
     NewSession {
         request_id: u32,
         /// Must be set to empty string
-        reserved:  &'static str,
+        reserved: &'static str,
 
         session: &'a Session<'a>,
     },
 
     /// A server may reply with `Response::Ok`, `Response::RemotePort`,
     /// `Response::PermissionDenied`, or `Response::Failure`.
-    /// 
+    ///
     /// For dynamically allocated listen port the server replies with
     /// `Request::RemotePort`.
-    OpenFwd {
-        request_id: u32,
-        fwd: &'a Fwd<'a>,
-    },
+    OpenFwd { request_id: u32, fwd: &'a Fwd<'a> },
 
     /// A client may request the master to stop accepting new multiplexing requests
     /// and remove its listener socket.
@@ -61,53 +58,47 @@ pub enum Request<'a> {
 }
 impl<'a> Serialize for Request<'a> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use Request::*;
         use constants::*;
+        use Request::*;
 
         match self {
-            Hello { version } =>
-                serializer.serialize_newtype_variant(
-                    "Request",
-                    MUX_MSG_HELLO,
-                    "Hello",
-                    version
-                ),
-            AliveCheck { request_id } =>
-                serializer.serialize_newtype_variant(
-                    "Request",
-                    MUX_C_ALIVE_CHECK,
-                    "AliveCheck",
-                    request_id
-                ),
-            NewSession { request_id, reserved, session } => {
-                serializer.serialize_newtype_variant(
-                    "Request",
-                    MUX_C_NEW_SESSION,
-                    "NewSession",
-                    &(*request_id, reserved, *session)
-                )
-            },
-            OpenFwd { request_id, fwd } =>
-                serializer.serialize_newtype_variant(
-                    "Request",
-                    MUX_C_OPEN_FWD,
-                    "OpenFwd",
-                    &(*request_id, *fwd)
-                ),
-            StopListening { request_id } =>
-                serializer.serialize_newtype_variant(
-                    "Request",
-                    MUX_C_STOP_LISTENING,
-                    "StopListening",
-                    request_id
-                ),
-            Terminate { request_id } =>
-                serializer.serialize_newtype_variant(
-                    "Request",
-                    MUX_C_TERMINATE,
-                    "Terminate",
-                    request_id
-                ),
+            Hello { version } => {
+                serializer.serialize_newtype_variant("Request", MUX_MSG_HELLO, "Hello", version)
+            }
+            AliveCheck { request_id } => serializer.serialize_newtype_variant(
+                "Request",
+                MUX_C_ALIVE_CHECK,
+                "AliveCheck",
+                request_id,
+            ),
+            NewSession {
+                request_id,
+                reserved,
+                session,
+            } => serializer.serialize_newtype_variant(
+                "Request",
+                MUX_C_NEW_SESSION,
+                "NewSession",
+                &(*request_id, reserved, *session),
+            ),
+            OpenFwd { request_id, fwd } => serializer.serialize_newtype_variant(
+                "Request",
+                MUX_C_OPEN_FWD,
+                "OpenFwd",
+                &(*request_id, *fwd),
+            ),
+            StopListening { request_id } => serializer.serialize_newtype_variant(
+                "Request",
+                MUX_C_STOP_LISTENING,
+                "StopListening",
+                request_id,
+            ),
+            Terminate { request_id } => serializer.serialize_newtype_variant(
+                "Request",
+                MUX_C_TERMINATE,
+                "Terminate",
+                request_id,
+            ),
         }
     }
 }
@@ -159,46 +150,38 @@ impl<'a> Serialize for Fwd<'a> {
         use Fwd::*;
 
         match self {
-            Local { listen_socket, connect_socket } => {
-                serializer.serialize_newtype_variant(
-                    "Fwd",
-                    constants::MUX_FWD_LOCAL,
-                    "Local",
-                    &(*listen_socket, *connect_socket)
-                )
-            },
-            Remote { listen_socket, connect_socket } => {
-                serializer.serialize_newtype_variant(
-                    "Fwd",
-                    constants::MUX_FWD_REMOTE,
-                    "Remote",
-                    &(*listen_socket, *connect_socket)
-                )
-            },
-            Dynamic { listen_socket } => {
-                serializer.serialize_newtype_variant(
-                    "Fwd",
-                    constants::MUX_FWD_DYNAMIC,
-                    "Dynamic",
-                    &(
-                        *listen_socket,
-                        Socket::UnixSocket { path: "" }
-                    )
-                )
-            },
+            Local {
+                listen_socket,
+                connect_socket,
+            } => serializer.serialize_newtype_variant(
+                "Fwd",
+                constants::MUX_FWD_LOCAL,
+                "Local",
+                &(*listen_socket, *connect_socket),
+            ),
+            Remote {
+                listen_socket,
+                connect_socket,
+            } => serializer.serialize_newtype_variant(
+                "Fwd",
+                constants::MUX_FWD_REMOTE,
+                "Remote",
+                &(*listen_socket, *connect_socket),
+            ),
+            Dynamic { listen_socket } => serializer.serialize_newtype_variant(
+                "Fwd",
+                constants::MUX_FWD_DYNAMIC,
+                "Dynamic",
+                &(*listen_socket, Socket::UnixSocket { path: "" }),
+            ),
         }
     }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Socket<'a> {
-    UnixSocket {
-        path: &'a str,
-    },
-    TcpSocket {
-        port: NonZeroU32,
-        host: &'a str,
-    },
+    UnixSocket { path: &'a str },
+    TcpSocket { port: NonZeroU32, host: &'a str },
 }
 impl<'a> Serialize for Socket<'a> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {

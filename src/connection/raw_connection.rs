@@ -1,11 +1,11 @@
 use core::convert::AsRef;
-use std::path::Path;
 use std::io;
+use std::path::Path;
 
 use tokio::net::UnixStream;
 
-use std::os::unix::io::RawFd;
 use sendfd::SendWithFd;
+use std::os::unix::io::RawFd;
 
 use super::Result;
 
@@ -24,7 +24,7 @@ impl RawConnection {
             match self.stream.try_write(bytes) {
                 Ok(n) => {
                     bytes = &bytes[n..];
-                },
+                }
                 Err(e) => {
                     if e.kind() != io::ErrorKind::WouldBlock {
                         return Err(e.into());
@@ -43,7 +43,7 @@ impl RawConnection {
             match self.stream.try_read(bytes) {
                 Ok(n) => {
                     bytes = &mut bytes[n..];
-                },
+                }
                 Err(e) => {
                     if e.kind() != io::ErrorKind::WouldBlock {
                         return Err(e.into());
