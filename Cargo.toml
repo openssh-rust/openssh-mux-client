@@ -3,6 +3,15 @@ name = "openssh-mux-client"
 version = "0.1.0"
 edition = "2018"
 
+authors = ["Jiahao XU <Jiahao_XU@outlook.com>"]
+
+license = "GPLv2"
+description = "Data format used to communicate with openssh mux server."
+repository = "https://github.com/NobodyXu/ssh_mux_format"
+
+keywords = ["ssh", "openssh", "multiplex", "async"]
+categories = ["Asynchronous", "Network programming"]
+
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 ssh_mux_format = "0.4.3"
