@@ -423,8 +423,10 @@ mod tests {
 
     async fn test_socket_forward_impl(mut conn: Connection) {
         let path = "/tmp/openssh-local-forward.socket";
-        let _ = remove_file(path); // Allow it to fail.
 
+        let output_listener = TcpListener::bind(("127.0.0.1", 1234)).await.unwrap();
+
+        eprintln!("Requesting port forward");
         conn.request_port_forward(
             ForwardType::Remote,
             &Socket::UnixSocket { path },
@@ -434,32 +436,33 @@ mod tests {
             }
         ).await.unwrap();
 
-        let cmd = "/usr/bin/socat STDIN TCP:localhost:1234";
-        let (established_session, mut stdios) = create_remote_process(conn, cmd).await;
+        eprintln!("Creating remote process");
+        let cmd = format!("/usr/bin/socat OPEN:/data,rdonly UNIX-CONNECT:{}", path);
+        let (established_session, stdios) = create_remote_process(conn, &cmd).await;
 
-        let mut output = UnixStream::connect(path).await.unwrap();
+        eprintln!("Waiting for connection");
+        let (mut output, _addr) = output_listener.accept().await.unwrap();
 
-        // All test data here must end with '\n', otherwise cat would output nothing
-        // and the test would hang forever.
-
-        eprintln!("Writing");
-
-        const DATA: &[u8] = b"1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n";
-        stdios.0.write_all(DATA).await.unwrap();
+        // All test data here must end with '\n', otherwise remote 
+        // command would output nothing and the test would hang forever.
 
         eprintln!("Reading");
 
+        const DATA: &[u8] = "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n".as_bytes();
+
         let mut buffer = [0 as u8; DATA.len()];
-        // This always hang up
         output.read_exact(&mut buffer).await.unwrap();
 
+        // thread 'connection::tests::test_socket_forward' panicked at 'assertion failed: `(left == right)`
+        //  left: `[49, 10, 50, 10, 51, 10, 52, 10, 53, 10, 54, 10, 55, 10, 56, 10, 57, 10, 49, 48, 10]`,
+        // right: `[48, 10, 49, 10, 50, 10, 51, 10, 52, 10, 53, 10, 54, 10, 55, 10, 56, 10, 57, 10, 49]`', src/connection/mod.rs:457:9
         assert_eq!(DATA, &buffer);
 
-        drop(stdios);
         drop(output);
-        remove_file(path).unwrap();
+        drop(output_listener);
+        drop(stdios);
 
-        // Wait for session to end
+        eprintln!("Waiting for session to end");
         let session_status = established_session.wait().await.unwrap();
         assert_matches!(
             session_status,
