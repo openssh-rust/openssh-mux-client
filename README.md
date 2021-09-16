@@ -1,5 +1,13 @@
 # openssh-mux-client
 
+[![Rust](https://github.com/NobodyXu/concurrency_toolkit/actions/workflows/rust.yml/badge.svg)](https://github.com/NobodyXu/concurrency_toolkit/actions/workflows/rust.yml)
+
+[![crate.io downloads](https://img.shields.io/crates/d/openssh-mux-client)](https://crates.io/crates/openssh-mux-client)
+
+[![crate.io version](https://img.shields.io/crates/v/openssh-mux-client)](https://crates.io/crates/openssh-mux-client)
+
+[![docs](https://docs.rs/openssh-mux-client/badge.svg)](https://docs.rs/openssh-mux-client)
+
 Rust library to communicate with openssh-mux-server using [ssh_mux_format].
 
 The entire crate is built upon [official document on ssh multiplex protocol][protocol doc].
