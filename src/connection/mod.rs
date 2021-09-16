@@ -433,15 +433,11 @@ mod tests {
     run_test!(test_open_new_session, test_open_new_session_impl);
 
     async fn test_socket_forward_impl(mut conn0: Connection, conn1: Connection) {
-        let cmd = "/usr/bin/socat TCP-LISTEN:1234 STDOUT";
-        let (established_session, mut stdios) =
-            create_remote_process(conn1, cmd).await;
-
         let path = "/tmp/openssh-local-forward.socket";
         let _ = remove_file(path); // Allow it to fail.
 
         conn0.request_port_forward(
-            ForwardType::Local,
+            ForwardType::Remote,
             &Socket::UnixSocket { path },
             &Socket::TcpSocket {
                 port: NonZeroU32::new(1234).unwrap(),
@@ -449,7 +445,11 @@ mod tests {
             }
         ).await.unwrap();
 
-        let mut input = UnixStream::connect(path).await.unwrap();
+        let cmd = "/usr/bin/socat STDIN TCP:localhost:1234";
+        let (established_session, mut stdios) =
+            create_remote_process(conn1, cmd).await;
+
+        let mut output = UnixStream::connect(path).await.unwrap();
 
         // All test data here must end with '\n', otherwise cat would output nothing
         // and the test would hang forever.
@@ -457,40 +457,19 @@ mod tests {
         eprintln!("Writing");
 
         const DATA: &[u8] = b"1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n";
-        input.write_all(DATA).await.unwrap();
-
-        // Put some dummy value to force ssh to flush its buffer
-        let vec: Vec<u8> = std::iter::repeat(0..255)
-            .take(50)
-            .flatten()
-            .collect();
-        for cnt in 0..10 {
-            match input.write_all(&vec).await {
-                Ok(_) => break,
-                Err(err) => {
-                    match err.kind() {
-                        std::io::ErrorKind::BrokenPipe => {
-                            eprintln!("BrokenPipe {}", cnt);
-                            break
-                        },
-                        _ => Err(err).unwrap(),
-                    }
-                },
-            }
-        }
-
-        drop(input);
-        remove_file(path).unwrap();
+        stdios.0.write_all(DATA).await.unwrap();
 
         eprintln!("Reading");
 
         let mut buffer = [0 as u8; DATA.len()];
         // This always hang up
-        stdios.1.read_exact(&mut buffer).await.unwrap();
+        output.read_exact(&mut buffer).await.unwrap();
 
         assert_eq!(DATA, &buffer);
 
         drop(stdios);
+        drop(output);
+        remove_file(path).unwrap();
 
         // Wait for session to end
         let session_status = established_session.wait().await.unwrap();
