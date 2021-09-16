@@ -333,10 +333,10 @@ impl Connection {
 #[cfg(test)]
 mod tests {
     use std::env;
+    use std::io;
     use std::os::unix::io::AsRawFd;
-    use tokio::net::UnixStream;
+    use tokio::net::TcpListener;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use std::fs::remove_file;
     use tokio_pipe::{pipe, PipeRead, PipeWrite};
     use super::*;
 
@@ -387,11 +387,14 @@ mod tests {
         // pipe() returns (PipeRead, PipeWrite)
         let (stdin_read, stdin_write) = pipe().unwrap();
         let (stdout_read, stdout_write) = pipe().unwrap();
-        let (_, stderr_write) = pipe().unwrap();
 
         let established_session = conn.open_new_session(
             &session,
-            &[stdin_read.as_raw_fd(), stdout_write.as_raw_fd(), stderr_write.as_raw_fd()]
+            &[
+                stdin_read.as_raw_fd(),
+                stdout_write.as_raw_fd(),
+                io::stderr().as_raw_fd(),
+            ]
         ).await.unwrap();
 
         (established_session, (stdin_write, stdout_read))
