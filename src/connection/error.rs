@@ -1,84 +1,37 @@
-use std::convert::From;
-use std::fmt;
 use std::io;
+use thiserror::Error;
 
-use super::{constants, Response};
+use super::Response;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
-    /// Server speaks a different multiple protocol.
+    #[error("Server speaks multiplex protocol other than protocol 4.")]
     UnsupportedMuxProtocol,
 
-    /// Server response with unexpected package type.
+    #[error("Server response with unexpected package type {0}: Response {1:#?}.")]
     InvalidServerResponse(&'static str, Response),
 
-    /// Server response with port = 0.
+    #[error("Server response with port = 0.")]
     InvalidPort,
 
-    /// Server response with pid = 0.
+    #[error("Server response with pid = 0.")]
     InvalidPid,
 
-    /// Server response with a different id than the requested one.
+    #[error("Server response with a different id than the requested one.")]
     UnmatchedRequestId,
 
-    /// Server response with a different session_id.
+    #[error("Server response with a different session_id.")]
     UnmatchedSessionId,
 
-    /// IO Error (Excluding `EWOULDBLOCK`).
-    IOError(io::Error),
+    #[error("IO Error (Excluding `EWOULDBLOCK`): {0}.")]
+    IOError(#[from] io::Error),
 
-    /// Failed to serialize/deserialize the message using crate `ssh_mux_format`.
-    FormatError(ssh_mux_format::Error),
+    #[error("Failed to serialize/deserialize the message: {0}.")]
+    FormatError(#[from] ssh_mux_format::Error),
 
-    /// Server refused the request with a reason.
+    #[error("Server refused the request: {0}.")]
     RequestFailure(String),
 
-    /// Server refused the request due to insufficient permission with a reason.
+    #[error("Server refused the request due to insufficient permission: {0}.")]
     PermissionDenied(String),
 }
-
-impl From<io::Error> for Error {
-    fn from(err: io::Error) -> Self {
-        Error::IOError(err)
-    }
-}
-impl From<ssh_mux_format::Error> for Error {
-    fn from(err: ssh_mux_format::Error) -> Self {
-        Error::FormatError(err)
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        use Error::*;
-
-        match self {
-            UnsupportedMuxProtocol => formatter.write_fmt(format_args!(
-                "Unsupported server protocol: {:#?}",
-                constants::UNSUPPORTED_MUX_PROTOCOL_ERRMSG
-            )),
-            InvalidServerResponse(msg, response) => formatter.write_fmt(format_args!(
-                "Invalid server response: {}, Actual response: {:#?}",
-                msg, response
-            )),
-            InvalidPort => formatter.write_str("Invalid port from the server: Port must not be 0"),
-            InvalidPid => formatter.write_str("Invalid pid from the server: Pid must not be 0"),
-            IOError(err) => formatter.write_fmt(format_args!("IO Error: {:#?}", err)),
-            FormatError(err) => {
-                formatter.write_fmt(format_args!("Error in (de)serialization: {:#?}", err))
-            }
-            UnmatchedRequestId => formatter
-                .write_str("The request_id server response with doesn't match with the request"),
-            UnmatchedSessionId => formatter
-                .write_str("The session_id server response with doesn't match with the request"),
-            RequestFailure(reason) => {
-                formatter.write_fmt(format_args!("Request failed: {}", reason))
-            }
-            PermissionDenied(reason) => {
-                formatter.write_fmt(format_args!("Permission denied: {}", reason))
-            }
-        }
-    }
-}
-
-impl std::error::Error for Error {}

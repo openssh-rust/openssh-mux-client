@@ -4,8 +4,6 @@ macro_rules! def_constants {
     };
 }
 
-pub const UNSUPPORTED_MUX_PROTOCOL_ERRMSG: &str = "Expected protocol 4";
-
 def_constants!(SSHMUX_VER, 4);
 
 def_constants!(MUX_MSG_HELLO, 0x00000001);
