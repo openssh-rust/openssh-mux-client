@@ -33,5 +33,4 @@ for i in 1 2 3 4 5 6 7 8 9 19; do
 done
 
 echo Failed to start ssh
-cat testfiles/ssh_log
 exit 1
