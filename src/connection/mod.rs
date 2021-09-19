@@ -364,7 +364,7 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
     use tokio_pipe::{pipe, PipeRead, PipeWrite};
-    
+
     const PATH: &str = "/tmp/openssh-mux-client-test.socket";
 
     macro_rules! run_test {
