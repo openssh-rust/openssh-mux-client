@@ -12,6 +12,10 @@ testfiles/start.sh
 testfiles/start_ssh.sh
 
 export ControlMasterPID=`testfiles/get_control_master_pid.sh`
+if [ -z "$ControlMasterPID" ]; then
+    echo Failed to start ssh
+    exit 1
+fi
 
 cargo test test_unordered -- --nocapture
 cargo test test_request_stop_listening -- --nocapture
