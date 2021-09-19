@@ -1,7 +1,9 @@
 #!/bin/bash -ex
 
 stop_ssh_tester() {
-    source testfiles/stop.sh
+    exit_code=$?
+    testfiles/stop.sh
+    exit $exit_code
 }
 
 cd $(dirname $(realpath $0))
