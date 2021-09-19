@@ -509,5 +509,8 @@ mod tests {
         );
         assert_matches!(Connection::connect(PATH).await, Err(_));
     }
-    run_test!(test_request_stop_listening, test_request_stop_listening_impl);
+    run_test!(
+        test_request_stop_listening,
+        test_request_stop_listening_impl
+    );
 }
