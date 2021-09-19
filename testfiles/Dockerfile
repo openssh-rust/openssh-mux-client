@@ -9,7 +9,8 @@ RUN apk update && \
 # These two files are also unlikely to change.
 COPY id_rsa.pub /etc/authorized_keys/test
 COPY entrypoint.sh /
-COPY data /data
+COPY data /
+COPY check_output.sh /
 
 # Env can be changed from time to time.
 ENV SSH_USERS=test:1000:1000
