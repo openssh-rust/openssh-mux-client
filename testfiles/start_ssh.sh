@@ -31,3 +31,7 @@ for i in 1 2 3 4 5; do
         exit
     fi
 done
+
+echo Failed to start ssh
+cat testfiles/ssh_log
+exit 1
