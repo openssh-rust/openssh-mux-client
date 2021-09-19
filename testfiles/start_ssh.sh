@@ -8,7 +8,9 @@ if [ "$1" != "term" ]; then
     options="-nT"
 fi
 
-for each in 1 2 3 4 5; do
+for i in 1 2 3 4 5; do
+    echo The $i try...
+
     sleep 1
     ssh test@localhost \
         -p 2435 \
