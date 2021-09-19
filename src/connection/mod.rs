@@ -413,7 +413,7 @@ mod tests {
     }
 
     async fn test_connect_impl(_conn: Connection) {}
-    run_test!(test_connect, test_connect_impl);
+    run_test!(test_unordered_connect, test_connect_impl);
 
     async fn test_alive_check_impl(mut conn: Connection) {
         let expected_pid = env::var("ControlMasterPID").unwrap();
@@ -422,7 +422,7 @@ mod tests {
         let actual_pid = conn.send_alive_check().await.unwrap().get();
         assert_eq!(expected_pid, actual_pid);
     }
-    run_test!(test_alive_check, test_alive_check_impl);
+    run_test!(test_unordered_alive_check, test_alive_check_impl);
 
     async fn test_roundtrip<const SIZE: usize>(
         stdios: &mut (PipeWrite, PipeRead),
@@ -479,7 +479,7 @@ mod tests {
                 if exit_value == 0
         );
     }
-    run_test!(test_open_new_session, test_open_new_session_impl);
+    run_test!(test_unordered_open_new_session, test_open_new_session_impl);
 
     async fn test_socket_forward_impl(mut conn: Connection) {
         let path = "/tmp/openssh-local-forward.socket";
@@ -529,5 +529,5 @@ mod tests {
                 if exit_value == 0
         );
     }
-    run_test!(test_socket_forward, test_socket_forward_impl);
+    run_test!(test_unordered_socket_forward, test_socket_forward_impl);
 }

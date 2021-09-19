@@ -13,4 +13,4 @@ testfiles/start_ssh.sh
 
 export ControlMasterPID=`testfiles/get_control_master_pid.sh`
 
-cargo test -- --nocapture
+cargo test test_unordered -- --nocapture
