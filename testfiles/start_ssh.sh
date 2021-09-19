@@ -7,6 +7,8 @@ rm -f known_host ssh_log
 
 if [ "$1" != "term" ]; then
     options="-nT"
+else
+    options="${@:2}"
 fi
 
 sleep 4
