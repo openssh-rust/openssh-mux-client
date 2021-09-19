@@ -8,7 +8,7 @@ if [ "$1" != "term" ]; then
     options="-nT"
 fi
 
-for i in 1 2 3 4 5 6 7 8 9 1; do
+for i in 1 2 3 4 5 6 7 8 9 10; do
     echo The $i try...
 
     sleep $i
@@ -30,6 +30,8 @@ for i in 1 2 3 4 5 6 7 8 9 1; do
     if [ $exit_code -eq 0 ]; then
         exit
     fi
+
+    sleep $i
 done
 
 echo Failed to start ssh
