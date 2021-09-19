@@ -320,7 +320,7 @@ impl Connection {
         }
     }
 
-    /// **UNTESTED** Request the master to stop accepting new multiplexing requests
+    /// Request the master to stop accepting new multiplexing requests
     /// and remove its listener socket.
     pub async fn request_stop_listening(&mut self) -> Result<()> {
         use Response::*;
@@ -399,13 +399,14 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
     use tokio_pipe::{pipe, PipeRead, PipeWrite};
+    
+    const PATH: &str = "/tmp/openssh-mux-client-test.socket";
 
     macro_rules! run_test {
         ( $test_name:ident, $func:ident ) => {
             #[tokio::test(flavor = "current_thread")]
             async fn $test_name() {
-                let path = "/tmp/openssh-mux-client-test.socket";
-                let conn = Connection::connect(path).await.unwrap();
+                let conn = Connection::connect(PATH).await.unwrap();
 
                 $func(conn).await;
             }
@@ -530,4 +531,18 @@ mod tests {
         );
     }
     run_test!(test_unordered_socket_forward, test_socket_forward_impl);
+
+    async fn test_request_stop_listing_impl(mut conn: Connection) {
+        conn.request_stop_listening().await.unwrap();
+
+        eprintln!("Verify that existing connection is still usable.");
+        test_open_new_session_impl(conn).await;
+
+        eprintln!(
+            "Verify that after the last connection is dropped, the multiplex server \
+            indeed shutdown."
+        );
+        assert_matches!(Connection::connect(PATH).await, Err(_));
+    }
+    run_test!(test_request_stop_listing, test_request_stop_listing_impl);
 }

@@ -16,11 +16,11 @@ Currently, I have written a few test cases to make sure the
  - health check
  - session opening
  - remote port forwarding
+ - graceful shutdown of the ssh multiplex server
 
 are working as intended, while features
  - local port forwarding
  - dynamic forwarding
- - graceful shutdown of the ssh multiplex server
  - terminating the ssh multiplex server
 
 are implemented but not tested.
