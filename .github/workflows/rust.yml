@@ -1,5 +1,8 @@
 name: Rust
 
+env:
+  CARGO_TERM_COLOR: always
+
 on:
   push:
     paths-ignore:
@@ -12,19 +15,32 @@ on:
       - 'LICENSE'
       - '.gitignore'
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
-  build:
+  check:
+    runs-on: ubuntu-latest
 
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run check
+      run: cargo check
+  check_format:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Check format
+      run: cargo fmt --all -- --check
+  Run_clippy:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
     - name: Run tests
-      run: |
-        ./run_test.sh &&
-        cargo check &&
-        cargo fmt --all -- --check &&
-        cargo clippy
+      run: cargo clippy
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run tests
+      run: ./run_test.sh
