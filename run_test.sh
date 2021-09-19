@@ -15,6 +15,3 @@ export ControlMasterPID=`testfiles/get_control_master_pid.sh`
 
 cargo test test_unordered -- --nocapture
 cargo test test_request_stop_listing -- --nocapture
-
-testfiles/start_ssh.sh
-cargo test test_request_terminate -- --nocapture

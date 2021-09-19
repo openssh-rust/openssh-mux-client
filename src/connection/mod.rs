@@ -353,41 +353,6 @@ impl Connection {
             )),
         }
     }
-
-    async fn request_terminate_impl(&mut self) -> Result<()> {
-        use Response::*;
-
-        let request_id = self.get_request_id();
-        self.write(&Request::Terminate { request_id }).await?;
-
-        match self.read_response().await? {
-            Ok { response_id } => {
-                Self::check_response_id(request_id, response_id)?;
-                Result::Ok(())
-            }
-            PermissionDenied {
-                response_id,
-                reason,
-            } => {
-                Self::check_response_id(request_id, response_id)?;
-                Err(Error::PermissionDenied(reason))
-            }
-            response => Err(Error::InvalidServerResponse(
-                "Expected Response: Ok or PermissionDenied",
-                response,
-            )),
-        }
-    }
-
-    /// (test failed) Request the master to terminate immediately.
-    ///
-    /// Return `Self` on `Err` so that you can handle the error and reuse
-    /// the `Connection`.
-    pub async fn request_terminate(mut self) -> Result<(), (Error, Self)> {
-        self.request_terminate_impl()
-            .await
-            .map_err(|err| (err, self))
-    }
 }
 
 #[cfg(test)]
@@ -545,14 +510,4 @@ mod tests {
         assert_matches!(Connection::connect(PATH).await, Err(_));
     }
     run_test!(test_request_stop_listing, test_request_stop_listing_impl);
-
-    async fn test_request_terminate_impl(conn: Connection) {
-        conn.request_terminate().await.unwrap();
-
-        eprintln!(
-            "Verify that the multiplex server indeed terminated."
-        );
-        assert_matches!(Connection::connect(PATH).await, Err(_));
-    }
-    run_test!(test_request_terminate, test_request_terminate_impl);
 }

@@ -51,10 +51,6 @@ pub enum Request<'a> {
     /// A server may reply with `Response::Ok`, `Response::PermissionDenied` or
     /// `Response::Failure`.
     StopListening { request_id: u32 },
-
-    /// A client may request that a master terminate immediately.
-    /// Server may response with `Response::Ok` or `Response::PermissionDenied`.
-    Terminate { request_id: u32 },
 }
 impl<'a> Serialize for Request<'a> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -91,12 +87,6 @@ impl<'a> Serialize for Request<'a> {
                 "Request",
                 MUX_C_STOP_LISTENING,
                 "StopListening",
-                request_id,
-            ),
-            Terminate { request_id } => serializer.serialize_newtype_variant(
-                "Request",
-                MUX_C_TERMINATE,
-                "Terminate",
                 request_id,
             ),
         }

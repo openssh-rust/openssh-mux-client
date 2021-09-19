@@ -17,7 +17,6 @@ Currently, I have written a few test cases to make sure the
  - session opening
  - remote port forwarding
  - graceful shutdown of the ssh multiplex server
- - terminating the ssh multiplex server (failed)
 
 are working as intended, while features
  - local port forwarding
@@ -28,6 +27,7 @@ are implemented but not tested.
 There are also two features that I didn't implement:
  - forward stdio (stdin + stdout) to remote port (not that useful)
  - closure of port forwarding (according to the [document], it is not implemented yet by ssh)
+ - terminating the ssh multiplex server for the ssh implementation is buggy (the server does not reply with the Ok message before it terminates).
 
 While it is extremely likely there are bugs in my code, I think it is ready for testing.
 
