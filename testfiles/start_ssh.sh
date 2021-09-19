@@ -2,6 +2,7 @@
 
 cd $(dirname $(realpath $0))
 
+chmod 400 id_rsa
 rm -f known_host ssh_log
 
 if [ "$1" != "term" ]; then
