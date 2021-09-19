@@ -9,6 +9,8 @@ if [ "$1" != "term" ]; then
     options="-nT"
 fi
 
+sleep 4
+
 for i in 1 2 3 4 5 6 7 8 9 10; do
     echo The $i try...
 
