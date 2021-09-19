@@ -17,11 +17,11 @@ Currently, I have written a few test cases to make sure the
  - session opening
  - remote port forwarding
  - graceful shutdown of the ssh multiplex server
+ - terminating the ssh multiplex server (failed)
 
 are working as intended, while features
  - local port forwarding
  - dynamic forwarding
- - terminating the ssh multiplex server
 
 are implemented but not tested.
 

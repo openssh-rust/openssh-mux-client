@@ -379,7 +379,7 @@ impl Connection {
         }
     }
 
-    /// **UNTESTED** Request the master to terminate immediately.
+    /// (test failed) Request the master to terminate immediately.
     ///
     /// Return `Self` on `Err` so that you can handle the error and reuse
     /// the `Connection`.
@@ -545,4 +545,14 @@ mod tests {
         assert_matches!(Connection::connect(PATH).await, Err(_));
     }
     run_test!(test_request_stop_listing, test_request_stop_listing_impl);
+
+    async fn test_request_terminate_impl(conn: Connection) {
+        conn.request_terminate().await.unwrap();
+
+        eprintln!(
+            "Verify that the multiplex server indeed terminated."
+        );
+        assert_matches!(Connection::connect(PATH).await, Err(_));
+    }
+    run_test!(test_request_terminate, test_request_terminate_impl);
 }
