@@ -14,6 +14,7 @@ testfiles/start_ssh.sh
 export ControlMasterPID=`testfiles/get_control_master_pid.sh`
 if [ -z "$ControlMasterPID" ]; then
     echo Failed to start ssh
+    cat testfiles/ssh_log
     exit 1
 fi
 
