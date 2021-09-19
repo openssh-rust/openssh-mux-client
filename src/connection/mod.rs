@@ -497,7 +497,7 @@ mod tests {
     }
     run_test!(test_unordered_socket_forward, test_socket_forward_impl);
 
-    async fn test_request_stop_listing_impl(mut conn: Connection) {
+    async fn test_request_stop_listening_impl(mut conn: Connection) {
         conn.request_stop_listening().await.unwrap();
 
         eprintln!("Verify that existing connection is still usable.");
@@ -509,5 +509,5 @@ mod tests {
         );
         assert_matches!(Connection::connect(PATH).await, Err(_));
     }
-    run_test!(test_request_stop_listing, test_request_stop_listing_impl);
+    run_test!(test_request_stop_listening, test_request_stop_listening_impl);
 }
