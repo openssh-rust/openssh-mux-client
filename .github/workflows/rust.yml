@@ -24,7 +24,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Run tests
       run: |
-        ./run_test.sh
-        cargo check
-        cargo fmt --all -- --check
+        ./run_test.sh &&
+        cargo check &&
+        cargo fmt --all -- --check &&
         cargo clippy
