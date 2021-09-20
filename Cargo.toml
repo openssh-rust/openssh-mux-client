@@ -10,7 +10,7 @@ description = "Data format used to communicate with openssh mux server."
 repository = "https://github.com/NobodyXu/ssh_mux_format"
 
 keywords = ["ssh", "openssh", "multiplex", "async"]
-categories = ["asynchronous", "network-programming"]
+categories = ["asynchronous", "network-programming", "api-bindings"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
