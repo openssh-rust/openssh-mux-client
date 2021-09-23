@@ -42,6 +42,11 @@ impl RawConnection {
 
             match self.stream.try_read(bytes) {
                 Ok(n) => {
+                    if n == 0 {
+                        let err: io::Error = io::ErrorKind::UnexpectedEof.into();
+                        return Err(err.into());
+                    }
+
                     bytes = &mut bytes[n..];
                 }
                 Err(e) => {
