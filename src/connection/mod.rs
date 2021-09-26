@@ -358,11 +358,16 @@ impl Connection {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use core::time::Duration;
     use std::env;
     use std::io;
     use std::os::unix::io::AsRawFd;
+
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use tokio::net::TcpListener;
+    use tokio::net::{TcpListener, TcpStream};
+    use tokio::time::sleep;
+
     use tokio_pipe::{pipe, PipeRead, PipeWrite};
 
     const PATH: &str = "/tmp/openssh-mux-client-test.socket";
@@ -371,9 +376,20 @@ mod tests {
         ( $test_name:ident, $func:ident ) => {
             #[tokio::test(flavor = "current_thread")]
             async fn $test_name() {
-                let conn = Connection::connect(PATH).await.unwrap();
+                $func(Connection::connect(PATH).await.unwrap()).await;
+            }
+        };
+    }
 
-                $func(conn).await;
+    macro_rules! run_test2 {
+        ( $test_name:ident, $func:ident ) => {
+            #[tokio::test(flavor = "current_thread")]
+            async fn $test_name() {
+                $func(
+                    Connection::connect(PATH).await.unwrap(),
+                    Connection::connect(PATH).await.unwrap(),
+                )
+                .await;
             }
         };
     }
@@ -447,8 +463,8 @@ mod tests {
     }
     run_test!(test_unordered_open_new_session, test_open_new_session_impl);
 
-    async fn test_socket_forward_impl(mut conn: Connection) {
-        let path = "/tmp/openssh-local-forward.socket";
+    async fn test_remote_socket_forward_impl(mut conn: Connection) {
+        let path = "/tmp/openssh-remote-forward.socket";
 
         let output_listener = TcpListener::bind(("127.0.0.1", 1234)).await.unwrap();
 
@@ -471,9 +487,6 @@ mod tests {
         eprintln!("Waiting for connection");
         let (mut output, _addr) = output_listener.accept().await.unwrap();
 
-        // All test data here must end with '\n', otherwise remote
-        // command would output nothing and the test would hang forever.
-
         eprintln!("Reading");
 
         const DATA: &[u8] = "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n".as_bytes();
@@ -495,7 +508,59 @@ mod tests {
                 if exit_value == 0
         );
     }
-    run_test!(test_unordered_socket_forward, test_socket_forward_impl);
+    run_test!(
+        test_unordered_remote_socket_forward,
+        test_remote_socket_forward_impl
+    );
+
+    async fn test_local_socket_forward_impl(conn0: Connection, mut conn1: Connection) {
+        let path = "/tmp/openssh-local-forward.socket";
+
+        eprintln!("Creating remote process");
+        let cmd = format!("socat -dddd -u OPEN:/data UNIX-LISTEN:{} >/dev/stderr", path);
+        let (established_session, stdios) = create_remote_process(conn0, &cmd).await;
+
+        sleep(Duration::from_secs(1)).await;
+
+        eprintln!("Requesting port forward");
+        conn1
+            .request_port_forward(
+                ForwardType::Local,
+                &Socket::TcpSocket {
+                    port: NonZeroU32::new(1235).unwrap(),
+                    host: "127.0.0.1",
+                },
+                &Socket::UnixSocket { path },
+            )
+            .await
+            .unwrap();
+
+        eprintln!("Connecting to forwarded socket");
+        let mut output = TcpStream::connect(("127.0.0.1", 1235)).await.unwrap();
+
+        eprintln!("Reading");
+
+        const DATA: &[u8] = "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n".as_bytes();
+        let mut buffer = [0 as u8; DATA.len()];
+        output.read_exact(&mut buffer).await.unwrap();
+
+        assert_eq!(DATA, buffer);
+
+        drop(output);
+        drop(stdios);
+
+        eprintln!("Waiting for session to end");
+        let session_status = established_session.wait().await.unwrap();
+        assert_matches!(
+            session_status,
+            SessionStatus::Exited { exit_value, .. }
+                if exit_value == 0
+        );
+    }
+    run_test2!(
+        test_unordered_local_socket_forward,
+        test_local_socket_forward_impl
+    );
 
     async fn test_request_stop_listening_impl(mut conn: Connection) {
         conn.request_stop_listening().await.unwrap();
