@@ -22,6 +22,6 @@ once_cell = "1.8.0"
 thiserror = "1.0.29"
 
 [dev-dependencies]
-tokio = { version = "1.11.0", features = ["rt", "macros", "io-util"] }
+tokio = { version = "1.11.0", features = ["rt", "macros", "io-util", "time"] }
 tokio-pipe = "0.2.1"
 assert_matches = "1.5.0"
