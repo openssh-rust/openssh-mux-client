@@ -20,5 +20,9 @@ if [ -z "$ControlMasterPID" ]; then
     exit 1
 fi
 
-cargo test test_unordered -- --nocapture
-cargo test test_request_stop_listening -- --nocapture
+if [ $# -lt 1 ]; then
+    cargo test test_unordered -- --nocapture
+    cargo test test_request_stop_listening -- --nocapture
+else
+    cargo test $@ -- --nocapture
+fi
