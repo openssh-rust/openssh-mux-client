@@ -17,9 +17,9 @@ Currently, I have written a few test cases to make sure the
  - session opening
  - remote port forwarding
  - graceful shutdown of the ssh multiplex server
+ - local port forwarding
 
 are working as intended, while features
- - local port forwarding
  - dynamic forwarding
 
 are implemented but not tested.
