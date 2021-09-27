@@ -1,6 +1,6 @@
 # openssh-mux-client
 
-[![Rust](https://github.com/NobodyXu/concurrency_toolkit/actions/workflows/rust.yml/badge.svg)](https://github.com/NobodyXu/concurrency_toolkit/actions/workflows/rust.yml)
+[![Rust](https://github.com/NobodyXu/openssh-mux-client/actions/workflows/rust.yml/badge.svg)](https://github.com/NobodyXu/openssh-mux-client/actions/workflows/rust.yml)
 
 [![crate.io downloads](https://img.shields.io/crates/d/openssh-mux-client)](https://crates.io/crates/openssh-mux-client)
 
