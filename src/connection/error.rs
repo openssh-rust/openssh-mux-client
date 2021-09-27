@@ -35,7 +35,7 @@ pub enum Error {
 
     /// Failed to serialize/deserialize the message: {0}.
     #[error("Failed to serialize/deserialize the message: {0}.")]
-    FormatError(#[from] ssh_mux_format::Error),
+    FormatError(#[from] ssh_format::Error),
 
     /// Server refused the request: {0}.
     #[error("Server refused the request: {0}.")]

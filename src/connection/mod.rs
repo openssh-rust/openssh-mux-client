@@ -17,7 +17,7 @@ use core::num::{NonZeroU32, Wrapping};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
-use ssh_mux_format::{from_bytes, Serializer};
+use ssh_format::{from_bytes, Serializer};
 
 use std::os::unix::io::RawFd;
 

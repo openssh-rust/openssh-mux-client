@@ -14,7 +14,7 @@ categories = ["asynchronous", "network-programming", "api-bindings"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-ssh_mux_format = "0.4.3"
+ssh_format = "0.4.7"
 sendfd = { version = "0.4.0", features = ["tokio"] }
 tokio = { version = "1.11.0", features = ["net"] }
 typed-builder = "0.9.1"
