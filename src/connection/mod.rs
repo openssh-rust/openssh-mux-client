@@ -518,7 +518,7 @@ mod tests {
 
         eprintln!("Creating remote process");
         let cmd = format!(
-            "socat -dddd -u OPEN:/data UNIX-LISTEN:{} >/dev/stderr",
+            "socat -u OPEN:/data UNIX-LISTEN:{} >/dev/stderr",
             path
         );
         let (established_session, stdios) = create_remote_process(conn0, &cmd).await;
