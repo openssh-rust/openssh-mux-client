@@ -209,21 +209,16 @@ impl Connection {
     ///
     /// The return value `EstablishedSession` will contain the moved `self`, which once
     /// the session has exited, you can get back this `Connection` and reused it.
-    ///
-    /// Return `Self` on `Err` so that you can handle the error
-    /// and reuse the `Connection`.
     pub async fn open_new_session(
         mut self,
         session: &Session<'_>,
         fds: &[RawFd; 3],
-    ) -> Result<EstablishedSession, (Error, Self)> {
-        match self.open_new_session_impl(session, fds).await {
-            Ok(session_id) => Ok(EstablishedSession {
-                conn: self,
-                session_id,
-            }),
-            Err(err) => Err((err, self)),
-        }
+    ) -> Result<EstablishedSession> {
+        let session_id = self.open_new_session_impl(session, fds).await?;
+        Ok(EstablishedSession {
+            conn: self,
+            session_id,
+        })
     }
 
     /// Request for local/remote port forwarding.
