@@ -206,9 +206,6 @@ impl Connection {
     /// Two additional cases that the client must cope with are it receiving
     /// a signal itself (from the ssh mux server) and the server disconnecting
     /// without sending an exit message.
-    ///
-    /// The return value `EstablishedSession` will contain the moved `self`, which once
-    /// the session has exited, you can get back this `Connection` and reused it.
     pub async fn open_new_session(
         mut self,
         session: &Session<'_>,

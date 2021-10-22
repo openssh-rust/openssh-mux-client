@@ -63,18 +63,11 @@ impl EstablishedSession {
     /// the operation.
     ///
     /// If the server close the connection without sending anything,
-    /// this function would return `UNEXPECTEDEOF` as the exit code
-    /// and it will not return the connection since it is already closed.
+    /// this function would return `UNEXPECTEDEOF` as the exit code.
     pub async fn wait(mut self) -> Result<SessionStatus, (Error, Self)> {
         match self.wait_impl().await {
             Ok(Some(exit_value)) => {
-                let conn = if exit_value == UNEXPECTEDEOF {
-                    None
-                } else {
-                    Some(self.conn)
-                };
-
-                Ok(SessionStatus::Exited { conn, exit_value })
+                Ok(SessionStatus::Exited { exit_value })
             }
             Ok(None) => Ok(SessionStatus::TtyAllocFail(self)),
             Err(err) => Err((err, self)),
@@ -93,8 +86,6 @@ pub enum SessionStatus {
 
     /// The process on the remote machine has exited with `exit_value`.
     Exited {
-        /// Return the connection so that you can reuse it.
-        conn: Option<Connection>,
         exit_value: u32,
     },
 }
