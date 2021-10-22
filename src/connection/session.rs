@@ -66,9 +66,7 @@ impl EstablishedSession {
     /// this function would return `UNEXPECTEDEOF` as the exit code.
     pub async fn wait(mut self) -> Result<SessionStatus, (Error, Self)> {
         match self.wait_impl().await {
-            Ok(Some(exit_value)) => {
-                Ok(SessionStatus::Exited { exit_value })
-            }
+            Ok(Some(exit_value)) => Ok(SessionStatus::Exited { exit_value }),
             Ok(None) => Ok(SessionStatus::TtyAllocFail(self)),
             Err(err) => Err((err, self)),
         }
@@ -85,7 +83,5 @@ pub enum SessionStatus {
     TtyAllocFail(EstablishedSession),
 
     /// The process on the remote machine has exited with `exit_value`.
-    Exited {
-        exit_value: u32,
-    },
+    Exited { exit_value: u32 },
 }
