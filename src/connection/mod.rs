@@ -450,7 +450,7 @@ mod tests {
         assert_matches!(
             session_status,
             SessionStatus::Exited { exit_value, .. }
-                if exit_value == 0
+                if exit_value.unwrap() == 0
         );
     }
     run_test!(test_unordered_open_new_session, test_open_new_session_impl);
@@ -497,7 +497,7 @@ mod tests {
         assert_matches!(
             session_status,
             SessionStatus::Exited { exit_value, .. }
-                if exit_value == 0
+                if exit_value.unwrap() == 0
         );
     }
     run_test!(
@@ -546,7 +546,7 @@ mod tests {
         assert_matches!(
             session_status,
             SessionStatus::Exited { exit_value, .. }
-                if exit_value == 0
+                if exit_value.unwrap() == 0
         );
     }
     run_test2!(

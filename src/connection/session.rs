@@ -2,8 +2,6 @@ use super::{Connection, Error, Response, Result};
 
 use std::io::ErrorKind;
 
-pub const UNEXPECTEDEOF: u32 = 255 << 8;
-
 /// `EstablishedSession` contains the moved `Connection`, which once the session
 /// has exited, you can get back this `Connection` and reused it.
 ///
@@ -25,14 +23,14 @@ impl EstablishedSession {
     }
 
     /// Return None if TtyAllocFail, Some(exit_value) if the process exited.
-    async fn wait_impl(&mut self) -> Result<Option<u32>> {
+    async fn wait_impl(&mut self) -> Result<Option<Option<u32>>> {
         use Response::*;
 
         let response = match self.conn.read_response().await {
             Result::Ok(response) => response,
             Err(err) => match &err {
                 Error::IOError(io_err) if io_err.kind() == ErrorKind::UnexpectedEof => {
-                    return Result::Ok(Some(UNEXPECTEDEOF))
+                    return Result::Ok(Some(None))
                 }
                 _ => return Err(err),
             },
@@ -48,7 +46,7 @@ impl EstablishedSession {
                 exit_value,
             } => {
                 self.check_session_id(session_id)?;
-                Result::Ok(Some(exit_value))
+                Result::Ok(Some(Some(exit_value)))
             }
             response => Err(Error::InvalidServerResponse(
                 "Expected Response TtyAllocFail or ExitMessage",
@@ -63,7 +61,7 @@ impl EstablishedSession {
     /// the operation.
     ///
     /// If the server close the connection without sending anything,
-    /// this function would return `UNEXPECTEDEOF` as the exit code.
+    /// this function would return `Ok(None)`.
     pub async fn wait(mut self) -> Result<SessionStatus, (Error, Self)> {
         match self.wait_impl().await {
             Ok(Some(exit_value)) => Ok(SessionStatus::Exited { exit_value }),
@@ -83,5 +81,5 @@ pub enum SessionStatus {
     TtyAllocFail(EstablishedSession),
 
     /// The process on the remote machine has exited with `exit_value`.
-    Exited { exit_value: u32 },
+    Exited { exit_value: Option<u32> },
 }
