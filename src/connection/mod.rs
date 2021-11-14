@@ -414,7 +414,7 @@ mod tests {
         conn: Connection,
         cmd: &str,
     ) -> (EstablishedSession, (PipeWrite, PipeRead)) {
-        let session = Session::builder().cmd(cmd).build();
+        let session = Session::builder().cmd(cmd.into()).build();
 
         // pipe() returns (PipeRead, PipeWrite)
         let (stdin_read, stdin_write) = pipe().unwrap();
@@ -463,10 +463,10 @@ mod tests {
         eprintln!("Requesting port forward");
         conn.request_port_forward(
             ForwardType::Remote,
-            &Socket::UnixSocket { path },
+            &Socket::UnixSocket { path: path.into() },
             &Socket::TcpSocket {
                 port: NonZeroU32::new(1234).unwrap(),
-                host: "127.0.0.1",
+                host: "127.0.0.1".into(),
             },
         )
         .await
@@ -506,7 +506,7 @@ mod tests {
     );
 
     async fn test_local_socket_forward_impl(conn0: Connection, mut conn1: Connection) {
-        let path = "/tmp/openssh-local-forward.socket";
+        let path = "/tmp/openssh-local-forward.socket".into();
 
         eprintln!("Creating remote process");
         let cmd = format!("socat -u OPEN:/data UNIX-LISTEN:{} >/dev/stderr", path);
@@ -520,7 +520,7 @@ mod tests {
                 ForwardType::Local,
                 &Socket::TcpSocket {
                     port: NonZeroU32::new(1235).unwrap(),
-                    host: "127.0.0.1",
+                    host: "127.0.0.1".into(),
                 },
                 &Socket::UnixSocket { path },
             )

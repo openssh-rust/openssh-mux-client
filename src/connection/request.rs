@@ -1,5 +1,8 @@
 use super::{constants, default_config};
+
 use core::num::NonZeroU32;
+use std::borrow::Cow;
+
 use serde::{ser::Serializer, Serialize};
 use typed_builder::TypedBuilder;
 
@@ -93,7 +96,7 @@ impl<'a> Serialize for Request<'a> {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, TypedBuilder)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, TypedBuilder)]
 #[builder(doc)]
 pub struct Session<'a> {
     #[builder(default = false)]
@@ -113,12 +116,12 @@ pub struct Session<'a> {
     pub escape_ch: char,
 
     /// Generally set to `$TERM`.
-    #[builder(default_code = r#"default_config::get_term()"#)]
-    pub term: &'a str,
-    pub cmd: &'a str,
+    #[builder(default_code = r#"default_config::get_term().into()"#)]
+    pub term: Cow<'a, str>,
+    pub cmd: Cow<'a, str>,
 
     #[builder(default = None)]
-    pub env: Option<&'a [&'a str]>,
+    pub env: Option<&'a [Cow<'a, str>]>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -162,16 +165,21 @@ impl<'a> Serialize for Fwd<'a> {
                 "Fwd",
                 constants::MUX_FWD_DYNAMIC,
                 "Dynamic",
-                &(*listen_socket, Socket::UnixSocket { path: "" }),
+                &(*listen_socket, Socket::UnixSocket { path: "".into() }),
             ),
         }
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Socket<'a> {
-    UnixSocket { path: &'a str },
-    TcpSocket { port: NonZeroU32, host: &'a str },
+    UnixSocket {
+        path: Cow<'a, str>,
+    },
+    TcpSocket {
+        port: NonZeroU32,
+        host: Cow<'a, str>,
+    },
 }
 impl<'a> Serialize for Socket<'a> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -180,8 +188,8 @@ impl<'a> Serialize for Socket<'a> {
         let unix_socket_port = -2;
 
         let value = match self {
-            UnixSocket { path } => (*path, unix_socket_port as u32),
-            TcpSocket { port, host } => (*host, port.get()),
+            UnixSocket { path } => (path, unix_socket_port as u32),
+            TcpSocket { port, host } => (host, port.get()),
         };
 
         value.serialize(serializer)
