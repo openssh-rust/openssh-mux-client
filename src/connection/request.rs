@@ -1,6 +1,5 @@
 use super::{constants, default_config};
 
-use core::num::NonZeroU32;
 use std::borrow::Cow;
 
 use serde::{ser::Serializer, Serialize};
@@ -173,23 +172,18 @@ impl<'a> Serialize for Fwd<'a> {
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Socket<'a> {
-    UnixSocket {
-        path: Cow<'a, str>,
-    },
-    TcpSocket {
-        port: NonZeroU32,
-        host: Cow<'a, str>,
-    },
+    UnixSocket { path: Cow<'a, str> },
+    TcpSocket { port: u32, host: Cow<'a, str> },
 }
 impl<'a> Serialize for Socket<'a> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use Socket::*;
 
-        let unix_socket_port = -2;
+        let unix_socket_port: i32 = -2;
 
         let value = match self {
             UnixSocket { path } => (path, unix_socket_port as u32),
-            TcpSocket { port, host } => (host, port.get()),
+            TcpSocket { port, host } => (host, *port),
         };
 
         value.serialize(serializer)

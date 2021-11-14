@@ -465,7 +465,7 @@ mod tests {
             ForwardType::Remote,
             &Socket::UnixSocket { path: path.into() },
             &Socket::TcpSocket {
-                port: NonZeroU32::new(1234).unwrap(),
+                port: 1234,
                 host: "127.0.0.1".into(),
             },
         )
@@ -519,7 +519,7 @@ mod tests {
             .request_port_forward(
                 ForwardType::Local,
                 &Socket::TcpSocket {
-                    port: NonZeroU32::new(1235).unwrap(),
+                    port: 1235,
                     host: "127.0.0.1".into(),
                 },
                 &Socket::UnixSocket { path },
