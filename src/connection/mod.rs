@@ -456,7 +456,7 @@ mod tests {
     run_test!(test_unordered_open_new_session, test_open_new_session_impl);
 
     async fn test_remote_socket_forward_impl(mut conn: Connection) {
-        let path = "/tmp/openssh-remote-forward.socket";
+        let path = Path::new("/tmp/openssh-remote-forward.socket");
 
         let output_listener = TcpListener::bind(("127.0.0.1", 1234)).await.unwrap();
 
@@ -473,7 +473,7 @@ mod tests {
         .unwrap();
 
         eprintln!("Creating remote process");
-        let cmd = format!("/usr/bin/socat OPEN:/data,rdonly UNIX-CONNECT:{}", path);
+        let cmd = format!("/usr/bin/socat OPEN:/data,rdonly UNIX-CONNECT:{:#?}", path);
         let (established_session, stdios) = create_remote_process(conn, &cmd).await;
 
         eprintln!("Waiting for connection");
@@ -506,10 +506,10 @@ mod tests {
     );
 
     async fn test_local_socket_forward_impl(conn0: Connection, mut conn1: Connection) {
-        let path = "/tmp/openssh-local-forward.socket".into();
+        let path = Path::new("/tmp/openssh-local-forward.socket").into();
 
         eprintln!("Creating remote process");
-        let cmd = format!("socat -u OPEN:/data UNIX-LISTEN:{} >/dev/stderr", path);
+        let cmd = format!("socat -u OPEN:/data UNIX-LISTEN:{:#?} >/dev/stderr", path);
         let (established_session, stdios) = create_remote_process(conn0, &cmd).await;
 
         sleep(Duration::from_secs(1)).await;

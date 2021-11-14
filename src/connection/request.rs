@@ -1,6 +1,7 @@
 use super::{constants, default_config};
 
 use std::borrow::Cow;
+use std::path::Path;
 
 use serde::{ser::Serializer, Serialize};
 use typed_builder::TypedBuilder;
@@ -164,7 +165,12 @@ impl<'a> Serialize for Fwd<'a> {
                 "Fwd",
                 constants::MUX_FWD_DYNAMIC,
                 "Dynamic",
-                &(*listen_socket, Socket::UnixSocket { path: "".into() }),
+                &(
+                    *listen_socket,
+                    Socket::UnixSocket {
+                        path: Path::new("").into(),
+                    },
+                ),
             ),
         }
     }
@@ -172,7 +178,7 @@ impl<'a> Serialize for Fwd<'a> {
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Socket<'a> {
-    UnixSocket { path: Cow<'a, str> },
+    UnixSocket { path: Cow<'a, Path> },
     TcpSocket { port: u32, host: Cow<'a, str> },
 }
 impl<'a> Serialize for Socket<'a> {
@@ -181,11 +187,9 @@ impl<'a> Serialize for Socket<'a> {
 
         let unix_socket_port: i32 = -2;
 
-        let value = match self {
-            UnixSocket { path } => (path, unix_socket_port as u32),
-            TcpSocket { port, host } => (host, *port),
-        };
-
-        value.serialize(serializer)
+        match self {
+            UnixSocket { path } => (path, unix_socket_port as u32).serialize(serializer),
+            TcpSocket { port, host } => (host, *port).serialize(serializer),
+        }
     }
 }
