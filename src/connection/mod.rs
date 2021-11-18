@@ -161,7 +161,7 @@ impl Connection {
         })
         .await?;
         for fd in fds {
-            self.raw_conn.send_with_fds(&[0], &[*fd])?;
+            self.raw_conn.send_with_fds(&[*fd]).await?;
         }
 
         let session_id = match self.read_response().await? {

@@ -60,9 +60,26 @@ impl RawConnection {
         Ok(())
     }
 
-    pub fn send_with_fds(&self, bytes: &[u8], vals: &[RawFd]) -> Result<()> {
-        SendWithFd::send_with_fd(&self.stream, bytes, vals)?;
-        Ok(())
+    /// Send fds with "\0"
+    pub async fn send_with_fds(&self, fds: &[RawFd]) -> Result<()> {
+        let byte = &[0];
+
+        loop {
+            self.stream.writable().await?;
+
+            match SendWithFd::send_with_fd(&self.stream, byte, fds) {
+                Ok(n) => {
+                    if n == 1 {
+                        break Ok(());
+                    }
+                }
+                Err(e) => {
+                    if e.kind() != io::ErrorKind::WouldBlock {
+                        break Err(e.into());
+                    }
+                }
+            }
+        }
     }
 
     pub async fn connect<P: AsRef<Path>>(path: P) -> Result<Self> {
