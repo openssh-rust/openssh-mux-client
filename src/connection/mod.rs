@@ -613,9 +613,8 @@ mod tests {
         for _i in 0..3 {
             match established_session.try_wait().unwrap() {
                 InProgress(session) => established_session = session,
-                Exited {
-                    exit_value: _exit_value,
-                } => {
+                Exited { exit_value } => {
+                    assert_matches!(exit_value, Some(value) if value == 0);
                     return;
                 }
                 _ => panic!("Unexpected return value from try_wait"),
