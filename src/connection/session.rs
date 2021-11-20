@@ -2,6 +2,11 @@ use super::{Connection, Error, Response, Result};
 
 use std::io::ErrorKind;
 
+enum EstablishedSessionState {
+    Exited(Option<u32>),
+    TtyAllocFail,
+}
+
 /// `EstablishedSession` contains the moved `Connection`, which once the session
 /// has exited, you can get back this `Connection` and reused it.
 ///
@@ -23,14 +28,14 @@ impl EstablishedSession {
     }
 
     /// Return None if TtyAllocFail, Some(...) if the process exited.
-    async fn wait_impl(&mut self) -> Result<Option<Option<u32>>> {
+    async fn wait_impl(&mut self) -> Result<EstablishedSessionState> {
         use Response::*;
 
         let response = match self.conn.read_response().await {
             Result::Ok(response) => response,
             Err(err) => match &err {
                 Error::IOError(io_err) if io_err.kind() == ErrorKind::UnexpectedEof => {
-                    return Result::Ok(Some(None))
+                    return Result::Ok(EstablishedSessionState::Exited(None))
                 }
                 _ => return Err(err),
             },
@@ -39,14 +44,14 @@ impl EstablishedSession {
         match response {
             TtyAllocFail { session_id } => {
                 self.check_session_id(session_id)?;
-                Result::Ok(None)
+                Result::Ok(EstablishedSessionState::TtyAllocFail)
             }
             ExitMessage {
                 session_id,
                 exit_value,
             } => {
                 self.check_session_id(session_id)?;
-                Result::Ok(Some(Some(exit_value)))
+                Result::Ok(EstablishedSessionState::Exited(Some(exit_value)))
             }
             response => Err(Error::InvalidServerResponse(
                 "Expected Response TtyAllocFail or ExitMessage",
@@ -63,16 +68,18 @@ impl EstablishedSession {
     /// If the server close the connection without sending anything,
     /// this function would return `Ok(None)`.
     pub async fn wait(mut self) -> Result<SessionStatus, (Error, Self)> {
+        use EstablishedSessionState::*;
+
         match self.wait_impl().await {
-            Ok(Some(exit_value)) => Ok(SessionStatus::Exited { exit_value }),
-            Ok(None) => Ok(SessionStatus::TtyAllocFail(self)),
+            Ok(Exited(exit_value)) => Ok(SessionStatus::Exited { exit_value }),
+            Ok(TtyAllocFail) => Ok(SessionStatus::TtyAllocFail(self)),
             Err(err) => Err((err, self)),
         }
     }
 
     /// Return None if the socket is not readable,
     /// Some(None) if TtyAllocFail, Some(Some(...)) if the process exited.
-    fn try_wait_impl(&mut self) -> Result<Option<Option<Option<u32>>>> {
+    fn try_wait_impl(&mut self) -> Result<Option<EstablishedSessionState>> {
         use Response::*;
 
         let response = match self.conn.try_read_response() {
@@ -80,7 +87,7 @@ impl EstablishedSession {
             Result::Ok(None) => return Result::Ok(None),
             Err(err) => match &err {
                 Error::IOError(io_err) if io_err.kind() == ErrorKind::UnexpectedEof => {
-                    return Result::Ok(Some(Some(None)))
+                    return Result::Ok(Some(EstablishedSessionState::Exited(None)))
                 }
                 _ => return Err(err),
             },
@@ -89,14 +96,14 @@ impl EstablishedSession {
         match response {
             TtyAllocFail { session_id } => {
                 self.check_session_id(session_id)?;
-                Result::Ok(Some(None))
+                Result::Ok(Some(EstablishedSessionState::TtyAllocFail))
             }
             ExitMessage {
                 session_id,
                 exit_value,
             } => {
                 self.check_session_id(session_id)?;
-                Result::Ok(Some(Some(Some(exit_value))))
+                Result::Ok(Some(EstablishedSessionState::Exited(Some(exit_value))))
             }
             response => Err(Error::InvalidServerResponse(
                 "Expected Response TtyAllocFail or ExitMessage",
@@ -118,9 +125,11 @@ impl EstablishedSession {
     ///
     /// If it is not readable, then it would return Ok(InProgress).
     pub fn try_wait(mut self) -> Result<TryWaitSessionStatus, (Error, Self)> {
+        use EstablishedSessionState::*;
+
         match self.try_wait_impl() {
-            Ok(Some(Some(exit_value))) => Ok(TryWaitSessionStatus::Exited { exit_value }),
-            Ok(Some(None)) => Ok(TryWaitSessionStatus::TtyAllocFail(self)),
+            Ok(Some(Exited(exit_value))) => Ok(TryWaitSessionStatus::Exited { exit_value }),
+            Ok(Some(TtyAllocFail)) => Ok(TryWaitSessionStatus::TtyAllocFail(self)),
             Ok(None) => Ok(TryWaitSessionStatus::InProgress(self)),
             Err(err) => Err((err, self)),
         }
