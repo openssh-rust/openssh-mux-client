@@ -67,7 +67,6 @@ jobs:
           ~/.cargo/registry/index/
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
-          /var/lib/docker/
           target/
         key: ${{ github.event.repository.name }}-${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}-v2
     - name: Run tests
