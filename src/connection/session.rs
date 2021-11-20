@@ -105,6 +105,18 @@ impl EstablishedSession {
         }
     }
 
+    /// Since waiting for the remote child to exit is basically waiting for the socket
+    /// to become readable, try_wait is basically polling for readable.
+    ///
+    /// If it is readable, then it would read the entire packet in blocking manner.
+    /// While this is indeed a blocking call, it is unlikely to block since
+    /// the ssh multiplex master most likely would send it using one write/send.
+    ///
+    /// And even if it does employ multiple write/send, these functions would just
+    /// return immediately since the buffer for the unix socket is empty
+    /// and should be big enough for one packet.
+    ///
+    /// If it is not readable, then it would return Ok(InProgress).
     pub fn try_wait(mut self) -> Result<TryWaitSessionStatus, (Error, Self)> {
         match self.try_wait_impl() {
             Ok(Some(Some(exit_value))) => Ok(TryWaitSessionStatus::Exited { exit_value }),
