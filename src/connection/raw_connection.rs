@@ -73,7 +73,7 @@ impl RawConnection {
     pub fn try_read(&self, bytes: &mut [u8]) -> Result<Option<()>> {
         let mut nread = 0;
 
-        while !bytes.is_empty() {
+        while nread < bytes.len() {
             match self.stream.try_read(&mut bytes[nread..]) {
                 Ok(n) => {
                     if n == 0 {
