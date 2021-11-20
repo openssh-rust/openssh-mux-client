@@ -22,7 +22,7 @@ impl EstablishedSession {
         }
     }
 
-    /// Return None if TtyAllocFail, Some(exit_value) if the process exited.
+    /// Return None if TtyAllocFail, Some(...) if the process exited.
     async fn wait_impl(&mut self) -> Result<Option<Option<u32>>> {
         use Response::*;
 
@@ -69,6 +69,50 @@ impl EstablishedSession {
             Err(err) => Err((err, self)),
         }
     }
+
+    /// Return None if the socket is not readable,
+    /// Some(None) if TtyAllocFail, Some(Some(...)) if the process exited.
+    fn try_wait_impl(&mut self) -> Result<Option<Option<Option<u32>>>> {
+        use Response::*;
+
+        let response = match self.conn.try_read_response() {
+            Result::Ok(Some(response)) => response,
+            Result::Ok(None) => return Result::Ok(None),
+            Err(err) => match &err {
+                Error::IOError(io_err) if io_err.kind() == ErrorKind::UnexpectedEof => {
+                    return Result::Ok(Some(Some(None)))
+                }
+                _ => return Err(err),
+            },
+        };
+
+        match response {
+            TtyAllocFail { session_id } => {
+                self.check_session_id(session_id)?;
+                Result::Ok(Some(None))
+            }
+            ExitMessage {
+                session_id,
+                exit_value,
+            } => {
+                self.check_session_id(session_id)?;
+                Result::Ok(Some(Some(Some(exit_value))))
+            }
+            response => Err(Error::InvalidServerResponse(
+                "Expected Response TtyAllocFail or ExitMessage",
+                response,
+            )),
+        }
+    }
+
+    pub fn try_wait(mut self) -> Result<TryWaitSessionStatus, (Error, Self)> {
+        match self.try_wait_impl() {
+            Ok(Some(Some(exit_value))) => Ok(TryWaitSessionStatus::Exited { exit_value }),
+            Ok(Some(None)) => Ok(TryWaitSessionStatus::TtyAllocFail(self)),
+            Ok(None) => Ok(TryWaitSessionStatus::InProgress(self)),
+            Err(err) => Err((err, self)),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -82,4 +126,21 @@ pub enum SessionStatus {
 
     /// The process on the remote machine has exited with `exit_value`.
     Exited { exit_value: Option<u32> },
+}
+
+#[derive(Debug)]
+pub enum TryWaitSessionStatus {
+    /// Remote ssh server failed to allocate a tty, you can now return the tty
+    /// to cooked mode.
+    ///
+    /// This arm includes `EstablishedSession` so that you can call `wait` on it
+    /// again and retrieve the exit status and the underlying connection.
+    TtyAllocFail(EstablishedSession),
+
+    /// The process on the remote machine has exited with `exit_value`.
+    Exited {
+        exit_value: Option<u32>,
+    },
+
+    InProgress(EstablishedSession),
 }
