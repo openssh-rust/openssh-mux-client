@@ -25,7 +25,7 @@ pub use error::Error;
 pub use response::Response;
 pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 
-pub use request::{Session, Socket};
+pub use request::{get_sftp_session, Session, Socket};
 pub use session::*;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]

@@ -1,1 +1,1 @@
- - Supposrt sftp: Set `subsystem` bit to true and specify `sftp` as command.
+ - Implement sftp protocol
