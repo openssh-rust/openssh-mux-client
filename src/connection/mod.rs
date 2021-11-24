@@ -61,6 +61,7 @@ impl Connection {
     {
         self.buffer.resize(size, 0);
         self.raw_conn.read(&mut self.buffer).await?;
+        // Ignore any trailing bytes to be forward compatible
         Ok(from_bytes(&self.buffer)?.0)
     }
 
@@ -79,6 +80,7 @@ impl Connection {
         T: Deserialize<'a>,
     {
         self.buffer.resize(size, 0);
+        // Ignore any trailing bytes to be forward compatible
         match self.raw_conn.try_read(&mut self.buffer)? {
             Some(_) => Ok(Some(from_bytes(&self.buffer)?.0)),
             None => Ok(None),
