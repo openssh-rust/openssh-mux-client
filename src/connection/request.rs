@@ -124,16 +124,6 @@ pub struct Session<'a> {
     pub env: Option<&'a [Cow<'a, str>]>,
 }
 
-/// Returns a preconfigured Session that can be used to create sftp processes
-/// on remote machines.
-pub fn get_sftp_session() -> Session<'static> {
-    Session::builder()
-        .subsystem(true)
-        .term(Cow::Borrowed(""))
-        .cmd(Cow::Borrowed("sftp"))
-        .build()
-}
-
 #[derive(Copy, Clone, Debug)]
 pub enum Fwd<'a> {
     Local {
