@@ -61,7 +61,7 @@ impl Connection {
     {
         self.buffer.resize(size, 0);
         self.raw_conn.read(&mut self.buffer).await?;
-        Ok(from_bytes(&self.buffer)?)
+        Ok(from_bytes(&self.buffer)?.0)
     }
 
     /// Return size of the response.
@@ -80,7 +80,7 @@ impl Connection {
     {
         self.buffer.resize(size, 0);
         match self.raw_conn.try_read(&mut self.buffer)? {
-            Some(_) => Ok(Some(from_bytes(&self.buffer)?)),
+            Some(_) => Ok(Some(from_bytes(&self.buffer)?.0)),
             None => Ok(None),
         }
     }
