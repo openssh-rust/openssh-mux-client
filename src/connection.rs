@@ -1,15 +1,7 @@
-mod constants;
-mod error;
-mod raw_connection;
-mod request;
-mod response;
-mod session;
+use crate::{constants, Error, EstablishedSession, Response, Result, Session, Socket};
 
-pub mod default_config;
-
-use raw_connection::RawConnection;
-use request::Fwd;
-use request::Request;
+use crate::raw_connection::RawConnection;
+use crate::request::{Fwd, Request};
 
 use core::convert::AsRef;
 use core::mem;
@@ -21,13 +13,6 @@ use serde::{Deserialize, Serialize};
 use ssh_format::{from_bytes, Serializer};
 
 use std::os::unix::io::RawFd;
-
-pub use error::Error;
-pub use response::Response;
-pub type Result<T, Err = Error> = std::result::Result<T, Err>;
-
-pub use request::{Session, Socket};
-pub use session::*;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum ForwardType {
@@ -71,7 +56,7 @@ impl Connection {
         self.read_and_deserialize(4).await
     }
 
-    async fn read_response(&mut self) -> Result<Response> {
+    pub(crate) async fn read_response(&mut self) -> Result<Response> {
         let len = self.read_header().await?;
         self.read_and_deserialize(len as usize).await
     }
@@ -102,7 +87,7 @@ impl Connection {
     /// enough for one message.
     ///
     /// If it is not readable, then it would return Ok(None).
-    fn try_read_response(&mut self) -> Result<Option<Response>> {
+    pub(crate) fn try_read_response(&mut self) -> Result<Option<Response>> {
         let len = match self.try_read_header()? {
             Some(len) => len as usize,
             None => return Ok(None),
@@ -402,6 +387,7 @@ impl Connection {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{SessionStatus, TryWaitSessionStatus};
 
     use core::time::Duration;
     use std::env;
