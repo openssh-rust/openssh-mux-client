@@ -7,9 +7,6 @@ enum EstablishedSessionState {
     TtyAllocFail,
 }
 
-/// `EstablishedSession` contains the moved `Connection`, which once the session
-/// has exited, you can get back this `Connection` and reused it.
-///
 /// # Cancel safety
 ///
 /// All methods of this struct is not cancellation safe.
