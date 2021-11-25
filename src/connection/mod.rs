@@ -14,6 +14,7 @@ use request::Request;
 use core::convert::AsRef;
 use core::mem;
 use core::num::{NonZeroU32, Wrapping};
+use std::borrow::Cow;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
@@ -255,6 +256,18 @@ impl Connection {
             conn: self,
             session_id,
         })
+    }
+
+    /// Convenient function for opening a new sftp session, uses
+    /// `open_new_session` underlying.
+    pub async fn sftp(self, fds: &[RawFd; 3]) -> Result<EstablishedSession> {
+        let session = Session::builder()
+            .subsystem(true)
+            .term(Cow::Borrowed(""))
+            .cmd(Cow::Borrowed("sftp"))
+            .build();
+
+        self.open_new_session(&session, fds).await
     }
 
     /// Request for local/remote port forwarding.
