@@ -235,6 +235,15 @@ impl Connection {
         fds: &[RawFd; 3],
     ) -> Result<EstablishedSession> {
         let session_id = self.open_new_session_impl(session, fds).await?;
+
+        // EstablishedSession does not send any request
+        // It merely wait for response.
+        //
+        // 8 bytes are enough to fit any response except for Failure,
+        // which includes a String.
+        self.transformer.get_buffer().resize(64, 0);
+        self.transformer.get_buffer().shrink_to_fit();
+
         Ok(EstablishedSession {
             conn: self,
             session_id,
