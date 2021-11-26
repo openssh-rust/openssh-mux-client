@@ -9,7 +9,7 @@ license = "MIT"
 description = "openssh mux client."
 repository = "https://github.com/NobodyXu/openssh-mux-client"
 
-keywords = ["ssh", "openssh", "multiplex", "async"]
+keywords = ["ssh", "openssh", "multiplex", "async", "network"]
 categories = ["asynchronous", "network-programming", "api-bindings"]
 
 [dependencies]
