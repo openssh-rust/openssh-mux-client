@@ -4,13 +4,12 @@ use crate::raw_connection::RawConnection;
 use crate::request::{Fwd, Request};
 
 use core::convert::AsRef;
-use core::mem;
 use core::num::{NonZeroU32, Wrapping};
 use std::borrow::Cow;
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
-use ssh_format::{from_bytes, Serializer};
+use serde::Deserialize;
+use ssh_format::Transformer;
 
 use std::os::unix::io::RawFd;
 
@@ -26,17 +25,14 @@ pub enum ForwardType {
 #[derive(Debug)]
 pub struct Connection {
     raw_conn: RawConnection,
-    serializer: Serializer,
-    /// Buffer for input from the server
-    buffer: Vec<u8>,
+    transformer: Transformer,
     request_id: Wrapping<u32>,
 }
 impl Connection {
     async fn write(&mut self, value: &Request<'_>) -> Result<()> {
-        value.serialize(&mut self.serializer)?;
-
-        self.raw_conn.write(self.serializer.get_output()?).await?;
-        self.serializer.reset();
+        self.raw_conn
+            .write(self.transformer.serialize(value)?)
+            .await?;
 
         Ok(())
     }
@@ -45,10 +41,12 @@ impl Connection {
     where
         T: Deserialize<'a>,
     {
-        self.buffer.resize(size, 0);
-        self.raw_conn.read(&mut self.buffer).await?;
+        self.transformer.get_buffer().resize(size, 0);
+        self.raw_conn
+            .read(&mut self.transformer.get_buffer())
+            .await?;
         // Ignore any trailing bytes to be forward compatible
-        Ok(from_bytes(&self.buffer)?.0)
+        Ok(self.transformer.deserialize()?.0)
     }
 
     /// Return size of the response.
@@ -65,10 +63,11 @@ impl Connection {
     where
         T: Deserialize<'a>,
     {
-        self.buffer.resize(size, 0);
+        self.transformer.get_buffer().resize(size, 0);
+
         // Ignore any trailing bytes to be forward compatible
-        match self.raw_conn.try_read(&mut self.buffer)? {
-            Some(_) => Ok(Some(from_bytes(&self.buffer)?.0)),
+        match self.raw_conn.try_read(self.transformer.get_buffer())? {
+            Some(_) => Ok(Some(self.transformer.deserialize()?.0)),
             None => Ok(None),
         }
     }
@@ -138,8 +137,7 @@ impl Connection {
     pub async fn connect<P: AsRef<Path>>(path: P) -> Result<Self> {
         Self {
             raw_conn: RawConnection::connect(path).await?,
-            serializer: Serializer::new(),
-            buffer: Vec::with_capacity(mem::size_of::<Response>()),
+            transformer: Transformer::new(),
             request_id: Wrapping(0),
         }
         .exchange_hello()
