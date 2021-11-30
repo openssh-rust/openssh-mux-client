@@ -16,9 +16,9 @@ pub enum Response {
     Alive { response_id: u32, server_pid: u32 },
 
     Ok { response_id: u32 },
-    Failure { response_id: u32, reason: String },
+    Failure { response_id: u32, reason: Box<str> },
 
-    PermissionDenied { response_id: u32, reason: String },
+    PermissionDenied { response_id: u32, reason: Box<str> },
 
     SessionOpened { response_id: u32, session_id: u32 },
     ExitMessage { session_id: u32, exit_value: u32 },
@@ -80,14 +80,14 @@ impl<'de> Visitor<'de> for ResponseVisitor {
                 Ok(Response::Ok { response_id })
             }
             MUX_S_FAILURE => {
-                let tup: (u32, String) = accessor.newtype_variant_seed(PhantomData)?;
+                let tup: (u32, Box<str>) = accessor.newtype_variant_seed(PhantomData)?;
                 Ok(Response::Failure {
                     response_id: tup.0,
                     reason: tup.1,
                 })
             }
             MUX_S_PERMISSION_DENIED => {
-                let tup: (u32, String) = accessor.newtype_variant_seed(PhantomData)?;
+                let tup: (u32, Box<str>) = accessor.newtype_variant_seed(PhantomData)?;
                 Ok(Response::PermissionDenied {
                     response_id: tup.0,
                     reason: tup.1,

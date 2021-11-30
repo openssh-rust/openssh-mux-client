@@ -39,9 +39,9 @@ pub enum Error {
 
     /// Server refused the request: {0}.
     #[error("Server refused the request: {0}.")]
-    RequestFailure(String),
+    RequestFailure(Box<str>),
 
     /// Server refused the request due to insufficient permission: {0}.
     #[error("Server refused the request due to insufficient permission: {0}.")]
-    PermissionDenied(String),
+    PermissionDenied(Box<str>),
 }
