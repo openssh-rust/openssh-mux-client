@@ -118,6 +118,17 @@ pub fn shutdown_mux_master<P: AsRef<Path>>(path: P) -> Result<()> {
     Connection::connect(path)?.request_stop_listening()
 }
 
+pub(crate) fn shutdown_mux_master_from(
+    raw_conn: UnixStream,
+    transformer: Transformer,
+) -> Result<()> {
+    Connection {
+        raw_conn,
+        transformer,
+    }
+    .request_stop_listening()
+}
+
 #[cfg(test)]
 mod tests {
     use super::shutdown_mux_master;
