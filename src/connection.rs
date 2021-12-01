@@ -3,7 +3,6 @@ use crate::{constants, Error, EstablishedSession, Response, Result, Session, Soc
 use crate::raw_connection::RawConnection;
 use crate::request::{Fwd, Request};
 
-use core::convert::AsRef;
 use core::num::{NonZeroU32, Wrapping};
 
 use std::borrow::Cow;

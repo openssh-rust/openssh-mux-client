@@ -7,6 +7,7 @@ mod raw_connection;
 mod request;
 mod response;
 mod session;
+mod shutdown_mux_master;
 
 pub mod default_config;
 
@@ -19,6 +20,8 @@ pub use response::Response;
 pub use session::*;
 
 pub use connection::*;
+
+pub use shutdown_mux_master::shutdown_mux_master;
 
 #[cfg(test)]
 #[macro_use]

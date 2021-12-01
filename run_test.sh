@@ -6,23 +6,30 @@ stop_ssh_tester() {
     exit $exit_code
 }
 
+start_ssh_tester() {
+    testfiles/start_ssh.sh
+    
+    export ControlMasterPID=`testfiles/get_control_master_pid.sh`
+    if [ -z "$ControlMasterPID" ]; then
+        echo Failed to start ssh
+        cat testfiles/*log
+        exit 1
+    fi
+}
+
 cd $(dirname $(realpath $0))
 
 trap stop_ssh_tester 0
 
 testfiles/start.sh
-testfiles/start_ssh.sh
-
-export ControlMasterPID=`testfiles/get_control_master_pid.sh`
-if [ -z "$ControlMasterPID" ]; then
-    echo Failed to start ssh
-    cat testfiles/*log
-    exit 1
-fi
+start_ssh_tester
 
 if [ $# -lt 1 ]; then
     cargo test test_unordered -- --nocapture
     cargo test test_request_stop_listening -- --nocapture
+
+    start_ssh_tester
+    cargo test test_sync_request_stop_listening -- --nocapture
 else
     cargo test $@ -- --nocapture
 fi
