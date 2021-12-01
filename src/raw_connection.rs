@@ -3,6 +3,7 @@ use core::convert::AsRef;
 use std::io;
 use std::path::Path;
 
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 
 use sendfd::SendWithFd;
@@ -22,46 +23,14 @@ impl RawConnection {
         Ok(self.stream.into_std()?)
     }
 
-    // TODO: Use AsyncWriteExt and AsyncReadExt
-    pub async fn write(&self, mut bytes: &[u8]) -> Result<()> {
-        while !bytes.is_empty() {
-            self.stream.writable().await?;
-
-            match self.stream.try_write(bytes) {
-                Ok(n) => {
-                    bytes = &bytes[n..];
-                }
-                Err(e) => {
-                    if e.kind() != io::ErrorKind::WouldBlock {
-                        return Err(e.into());
-                    }
-                }
-            }
-        }
+    pub async fn write(&mut self, bytes: &[u8]) -> Result<()> {
+        self.stream.write_all(bytes).await?;
 
         Ok(())
     }
 
-    pub async fn read(&self, mut bytes: &mut [u8]) -> Result<()> {
-        while !bytes.is_empty() {
-            self.stream.readable().await?;
-
-            match self.stream.try_read(bytes) {
-                Ok(n) => {
-                    if n == 0 {
-                        let err: io::Error = io::ErrorKind::UnexpectedEof.into();
-                        return Err(err.into());
-                    }
-
-                    bytes = &mut bytes[n..];
-                }
-                Err(e) => {
-                    if e.kind() != io::ErrorKind::WouldBlock {
-                        return Err(e.into());
-                    }
-                }
-            }
-        }
+    pub async fn read(&mut self, bytes: &mut [u8]) -> Result<()> {
+        self.stream.read_exact(bytes).await?;
 
         Ok(())
     }
