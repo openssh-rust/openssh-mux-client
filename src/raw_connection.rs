@@ -1,4 +1,5 @@
 use core::convert::AsRef;
+
 use std::io;
 use std::path::Path;
 
@@ -17,6 +18,11 @@ pub struct RawConnection {
     stream: UnixStream,
 }
 impl RawConnection {
+    pub fn into_std(self) -> Result<std::os::unix::net::UnixStream> {
+        Ok(self.stream.into_std()?)
+    }
+
+    // TODO: Use AsyncWriteExt and AsyncReadExt
     pub async fn write(&self, mut bytes: &[u8]) -> Result<()> {
         while !bytes.is_empty() {
             self.stream.writable().await?;

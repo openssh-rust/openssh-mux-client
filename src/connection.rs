@@ -5,7 +5,9 @@ use crate::request::{Fwd, Request};
 
 use core::convert::AsRef;
 use core::num::{NonZeroU32, Wrapping};
+
 use std::borrow::Cow;
+use std::io::Write;
 use std::path::Path;
 
 use serde::Deserialize;
@@ -388,6 +390,21 @@ impl Connection {
                 response,
             )),
         }
+    }
+
+    /// Request the master to stop accepting new multiplexing requests
+    /// and remove its listener socket.
+    ///
+    /// **Only suitable to use in `Drop::drop`.**
+    pub fn close(mut self) -> Result<()> {
+        let request_id = self.get_request_id();
+
+        self.raw_conn.into_std()?.write_all(
+            self.transformer
+                .serialize(&Request::StopListening { request_id })?,
+        )?;
+
+        Ok(())
     }
 }
 
