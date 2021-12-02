@@ -7,12 +7,13 @@ use crate::request::{Fwd, Request};
 use core::num::{NonZeroU32, Wrapping};
 
 use std::borrow::Cow;
+use std::os::unix::io::RawFd;
 use std::path::Path;
 
 use serde::Deserialize;
 use ssh_format::Transformer;
 
-use std::os::unix::io::RawFd;
+use tokio_io_utility::read_exact_to_vec;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum ForwardType {
@@ -42,10 +43,14 @@ impl Connection {
     where
         T: Deserialize<'a>,
     {
-        self.transformer.get_buffer().resize(size, 0);
-        self.raw_conn
-            .read(&mut self.transformer.get_buffer())
-            .await?;
+        self.transformer.get_buffer().clear();
+        read_exact_to_vec(
+            &mut self.raw_conn.stream,
+            self.transformer.get_buffer(),
+            size,
+        )
+        .await?;
+
         // Ignore any trailing bytes to be forward compatible
         Ok(self.transformer.deserialize()?.0)
     }

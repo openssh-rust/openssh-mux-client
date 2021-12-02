@@ -1,20 +1,20 @@
+use super::Result;
+
 use std::io;
+use std::os::unix::io::RawFd;
 use std::path::Path;
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::net::UnixStream;
 
 use sendfd::SendWithFd;
-use std::os::unix::io::RawFd;
-
-use super::Result;
 
 /// # Cancel safety
 ///
 /// All methods of this struct is not cancellation safe.
 #[derive(Debug)]
 pub struct RawConnection {
-    stream: UnixStream,
+    pub(crate) stream: UnixStream,
 }
 impl RawConnection {
     pub fn into_std(self) -> Result<std::os::unix::net::UnixStream> {
@@ -23,12 +23,6 @@ impl RawConnection {
 
     pub async fn write(&mut self, bytes: &[u8]) -> Result<()> {
         self.stream.write_all(bytes).await?;
-
-        Ok(())
-    }
-
-    pub async fn read(&mut self, bytes: &mut [u8]) -> Result<()> {
-        self.stream.read_exact(bytes).await?;
 
         Ok(())
     }
