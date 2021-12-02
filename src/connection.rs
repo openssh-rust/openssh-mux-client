@@ -39,6 +39,11 @@ impl Connection {
         Ok(())
     }
 
+    fn deserialize<'a, T: Deserialize<'a>>(&'a self) -> Result<T> {
+        // Ignore any trailing bytes to be forward compatible
+        Ok(self.transformer.deserialize()?.0)
+    }
+
     async fn read_and_deserialize<'a, T>(&'a mut self, size: usize) -> Result<T>
     where
         T: Deserialize<'a>,
@@ -51,8 +56,7 @@ impl Connection {
         )
         .await?;
 
-        // Ignore any trailing bytes to be forward compatible
-        Ok(self.transformer.deserialize()?.0)
+        self.deserialize()
     }
 
     /// Return size of the response.
@@ -73,7 +77,7 @@ impl Connection {
 
         // Ignore any trailing bytes to be forward compatible
         match self.raw_conn.try_read(self.transformer.get_buffer())? {
-            Some(_) => Ok(Some(self.transformer.deserialize()?.0)),
+            Some(_) => Ok(Some(self.deserialize()?)),
             None => Ok(None),
         }
     }
