@@ -395,7 +395,7 @@ impl Connection {
     /// and remove its listener socket.
     ///
     /// **Only suitable to use in `Drop::drop`.**
-    pub fn close(self) -> Result<()> {
+    pub fn request_stop_listening_sync(self) -> Result<()> {
         shutdown_mux_master_from(self.raw_conn.into_std()?, self.transformer)
     }
 }
