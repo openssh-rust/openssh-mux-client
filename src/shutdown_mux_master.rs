@@ -114,6 +114,10 @@ impl Connection {
     }
 }
 
+/// Request the master to stop accepting new multiplexing requests
+/// and remove its listener socket.
+///
+/// **Only suitable to use in `Drop::drop`.**
 pub fn shutdown_mux_master<P: AsRef<Path>>(path: P) -> Result<()> {
     Connection::connect(path)?.request_stop_listening()
 }
