@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+#[cfg(not(unix))]
+compile_error!("This crate can only be used on unix");
+
 mod connection;
 mod constants;
 mod error;
