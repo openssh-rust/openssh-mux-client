@@ -17,7 +17,7 @@ pub mod default_config;
 pub use error::Error;
 pub type Result<T, Err = Error> = std::result::Result<T, Err>;
 
-pub use request::{Session, Socket};
+pub use request::{Envs, Session, Socket};
 pub use response::Response;
 
 pub use session::*;

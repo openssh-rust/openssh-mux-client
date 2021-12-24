@@ -3,7 +3,9 @@ use super::{constants, default_config};
 use std::borrow::Cow;
 use std::path::Path;
 
-use serde::{ser::Serializer, Serialize};
+use serde::ser::{SerializeTuple, Serializer};
+use serde::Serialize;
+
 use typed_builder::TypedBuilder;
 
 #[derive(Copy, Clone, Debug)]
@@ -120,8 +122,26 @@ pub struct Session<'a> {
     pub term: Cow<'a, str>,
     pub cmd: Cow<'a, str>,
 
-    #[builder(default = None)]
-    pub env: Option<&'a [Cow<'a, str>]>,
+    #[builder(default = None, setter(transform = |envs: &'a [Cow<'a, str>]| Some(Envs(envs))))]
+    pub env: Option<Envs<'a>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Envs<'a>(&'a [Cow<'a, str>]);
+
+/// Manually implement `Serialize` to ensure that the length is not serialied.
+impl Serialize for Envs<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let envs = self.0;
+
+        let mut tuple_serializer = serializer.serialize_tuple(envs.len())?;
+
+        for env in envs {
+            tuple_serializer.serialize_element(&env)?;
+        }
+
+        tuple_serializer.end()
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
