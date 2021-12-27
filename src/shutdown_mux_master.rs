@@ -26,8 +26,7 @@ impl Connection {
         T: Deserialize<'a>,
     {
         self.transformer.get_buffer().resize(size, 0);
-        self.raw_conn
-            .read_exact(&mut self.transformer.get_buffer())?;
+        self.raw_conn.read_exact(self.transformer.get_buffer())?;
 
         // Ignore any trailing bytes to be forward compatible
         Ok(self.transformer.deserialize()?.0)
