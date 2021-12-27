@@ -4,7 +4,8 @@ FROM panubo/sshd
 # so it can be cached.
 RUN apk update && \
     apk add socat && \
-    rm -rf /var/cache/apk/*
+    rm -rf /var/cache/apk/* && \
+    echo 'AcceptEnv *'>>/etc/ssh/sshd_config
 
 # These two files are also unlikely to change.
 COPY id_rsa.pub /etc/authorized_keys/test
