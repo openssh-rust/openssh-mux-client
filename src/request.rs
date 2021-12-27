@@ -1,6 +1,7 @@
 use super::{constants, default_config};
 
 use std::borrow::Cow;
+use std::ffi::CStr;
 use std::path::Path;
 
 use serde::ser::{SerializeTuple, Serializer};
@@ -119,15 +120,15 @@ pub struct Session<'a> {
 
     /// Generally set to `$TERM`.
     #[builder(default_code = r#"default_config::get_term().into()"#)]
-    pub term: Cow<'a, str>,
-    pub cmd: Cow<'a, str>,
+    pub term: Cow<'a, CStr>,
+    pub cmd: Cow<'a, CStr>,
 
-    #[builder(default = None, setter(transform = |envs: &'a [Cow<'a, str>]| Some(Envs(envs))))]
+    #[builder(default = None, setter(transform = |envs: &'a [Cow<'a, CStr>]| Some(Envs(envs))))]
     pub env: Option<Envs<'a>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Envs<'a>(&'a [Cow<'a, str>]);
+pub struct Envs<'a>(&'a [Cow<'a, CStr>]);
 
 /// Manually implement `Serialize` to ensure that the length is not serialied.
 impl Serialize for Envs<'_> {
