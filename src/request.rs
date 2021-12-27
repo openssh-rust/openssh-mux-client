@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::ffi::CStr;
 use std::path::Path;
 
-use serde::ser::{SerializeTuple, Serializer};
+use serde::ser::Serializer;
 use serde::Serialize;
 
 use typed_builder::TypedBuilder;
@@ -122,27 +122,6 @@ pub struct Session<'a> {
     #[builder(default_code = r#"default_config::get_term().into()"#)]
     pub term: Cow<'a, CStr>,
     pub cmd: Cow<'a, CStr>,
-
-    #[builder(default = None, setter(transform = |envs: &'a [Cow<'a, CStr>]| Some(Envs(envs))))]
-    pub env: Option<Envs<'a>>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Envs<'a>(&'a [Cow<'a, CStr>]);
-
-/// Manually implement `Serialize` to ensure that the length is not serialied.
-impl Serialize for Envs<'_> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let envs = self.0;
-
-        let mut tuple_serializer = serializer.serialize_tuple(envs.len())?;
-
-        for env in envs {
-            tuple_serializer.serialize_element(&env)?;
-        }
-
-        tuple_serializer.end()
-    }
 }
 
 #[derive(Copy, Clone, Debug)]
