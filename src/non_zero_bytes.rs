@@ -1,5 +1,5 @@
 use std::borrow::{Borrow, ToOwned};
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::mem::transmute;
 use std::num::NonZeroU8;
 use std::ops::Deref;
@@ -28,6 +28,18 @@ impl NonZeroByteSlice {
 
     pub const fn into_inner(&self) -> &[u8] {
         &self.0
+    }
+}
+
+impl<'a> From<&'a str> for &'a NonZeroByteSlice {
+    fn from(s: &'a str) -> Self {
+        unsafe { NonZeroByteSlice::new_unchecked(s.as_bytes()) }
+    }
+}
+
+impl<'a> From<&'a CStr> for &'a NonZeroByteSlice {
+    fn from(s: &'a CStr) -> Self {
+        unsafe { NonZeroByteSlice::new_unchecked(s.to_bytes()) }
     }
 }
 
