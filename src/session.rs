@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use super::{Connection, Error, Response, Result};
 
 use std::io::ErrorKind;

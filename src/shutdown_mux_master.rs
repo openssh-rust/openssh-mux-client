@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use crate::{constants, request::Request, Error, Response, Result};
 
 use std::io::Read;

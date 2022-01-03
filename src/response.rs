@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use core::marker::PhantomData;
 use serde::{
     de::{Deserializer, EnumAccess, Error, VariantAccess, Visitor},

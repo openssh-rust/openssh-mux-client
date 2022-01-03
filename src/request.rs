@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use super::{constants, default_config};
 
 use std::borrow::Cow;

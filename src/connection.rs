@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use crate::shutdown_mux_master::shutdown_mux_master_from;
 use crate::{constants, Error, EstablishedSession, Response, Result, Session, Socket};
 

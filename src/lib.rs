@@ -1,11 +1,10 @@
-#![forbid(unsafe_code)]
-
 #[cfg(not(unix))]
 compile_error!("This crate can only be used on unix");
 
 mod connection;
 mod constants;
 mod error;
+mod non_zero_bytes;
 mod raw_connection;
 mod request;
 mod response;
@@ -13,6 +12,8 @@ mod session;
 mod shutdown_mux_master;
 
 pub mod default_config;
+
+pub use non_zero_bytes::*;
 
 pub use error::Error;
 pub type Result<T, Err = Error> = std::result::Result<T, Err>;
