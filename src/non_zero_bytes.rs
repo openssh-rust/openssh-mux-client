@@ -18,6 +18,7 @@ impl NonZeroByteSlice {
             }
         }
 
+        // safety: bytes does not contain 0
         Some(unsafe { Self::new_unchecked(bytes) })
     }
 
@@ -35,12 +36,14 @@ impl NonZeroByteSlice {
 
 impl<'a> From<&'a str> for &'a NonZeroByteSlice {
     fn from(s: &'a str) -> Self {
+        // safety: str cannot contain 0 byte
         unsafe { NonZeroByteSlice::new_unchecked(s.as_bytes()) }
     }
 }
 
 impl<'a> From<&'a CStr> for &'a NonZeroByteSlice {
     fn from(s: &'a CStr) -> Self {
+        // safety: CStr cannot contain 0 byte
         unsafe { NonZeroByteSlice::new_unchecked(s.to_bytes()) }
     }
 }
@@ -92,12 +95,14 @@ impl From<&NonZeroByteSlice> for NonZeroByteVec {
 
 impl From<String> for NonZeroByteVec {
     fn from(s: String) -> Self {
+        // safety: String cannot contain 0 byte
         unsafe { Self::new_unchecked(s.into_bytes()) }
     }
 }
 
 impl From<CString> for NonZeroByteVec {
     fn from(s: CString) -> Self {
+        // safety: CString cannot contain 0 byte
         unsafe { Self::new_unchecked(s.into_bytes()) }
     }
 }
@@ -106,6 +111,7 @@ impl Deref for NonZeroByteVec {
     type Target = NonZeroByteSlice;
 
     fn deref(&self) -> &Self::Target {
+        // safety: self.0 does not contain 0
         unsafe { NonZeroByteSlice::new_unchecked(&self.0) }
     }
 }
