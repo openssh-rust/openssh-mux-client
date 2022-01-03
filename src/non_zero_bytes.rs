@@ -53,6 +53,13 @@ impl NonZeroByteVec {
         Some(Self(bytes))
     }
 
+    /// # Safety
+    ///
+    /// * `bytes` - Must not contain `0`.
+    pub const unsafe fn new_unchecked(bytes: Vec<u8>) -> Self {
+        Self(bytes)
+    }
+
     pub fn from_slice(slice: &NonZeroByteSlice) -> Self {
         Self(slice.into_inner().into())
     }
