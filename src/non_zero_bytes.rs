@@ -1,4 +1,5 @@
 use std::borrow::{Borrow, ToOwned};
+use std::ffi::CString;
 use std::mem::transmute;
 use std::num::NonZeroU8;
 use std::ops::Deref;
@@ -72,6 +73,18 @@ impl NonZeroByteVec {
 impl From<&NonZeroByteSlice> for NonZeroByteVec {
     fn from(slice: &NonZeroByteSlice) -> Self {
         Self::from_slice(slice)
+    }
+}
+
+impl From<String> for NonZeroByteVec {
+    fn from(s: String) -> Self {
+        unsafe { Self::new_unchecked(s.into_bytes()) }
+    }
+}
+
+impl From<CString> for NonZeroByteVec {
+    fn from(s: CString) -> Self {
+        unsafe { Self::new_unchecked(s.into_bytes()) }
     }
 }
 
