@@ -1,9 +1,8 @@
 #![forbid(unsafe_code)]
 
-use super::{constants, default_config};
+use super::{constants, default_config, NonZeroByteSlice};
 
 use std::borrow::Cow;
-use std::ffi::CStr;
 use std::path::Path;
 
 use serde::ser::Serializer;
@@ -122,8 +121,8 @@ pub struct Session<'a> {
 
     /// Generally set to `$TERM`.
     #[builder(default_code = r#"default_config::get_term().into()"#)]
-    pub term: Cow<'a, CStr>,
-    pub cmd: Cow<'a, CStr>,
+    pub term: Cow<'a, NonZeroByteSlice>,
+    pub cmd: Cow<'a, NonZeroByteSlice>,
 }
 
 #[derive(Copy, Clone, Debug)]
