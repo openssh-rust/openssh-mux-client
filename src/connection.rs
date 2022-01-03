@@ -9,7 +9,6 @@ use crate::request::{Fwd, Request};
 use core::num::{NonZeroU32, Wrapping};
 
 use std::borrow::Cow;
-use std::ffi::CStr;
 use std::os::unix::io::RawFd;
 use std::path::Path;
 
@@ -268,8 +267,8 @@ impl Connection {
     pub async fn sftp(self, fds: &[RawFd; 3]) -> Result<EstablishedSession> {
         let session = Session::builder()
             .subsystem(true)
-            .term(Cow::Borrowed(CStr::from_bytes_with_nul(b"\0").unwrap()))
-            .cmd(Cow::Borrowed(CStr::from_bytes_with_nul(b"sftp\0").unwrap()))
+            .term(Cow::Borrowed("".into()))
+            .cmd(Cow::Borrowed("sftp".into()))
             .build();
 
         self.open_new_session(&session, fds).await
@@ -419,7 +418,6 @@ mod tests {
 
     use core::time::Duration;
     use std::env;
-    use std::ffi::CString;
     use std::io;
     use std::os::unix::io::AsRawFd;
 
@@ -481,9 +479,7 @@ mod tests {
         conn: Connection,
         cmd: &str,
     ) -> (EstablishedSession, (PipeWrite, PipeRead)) {
-        let session = Session::builder()
-            .cmd(Cow::Owned(CString::new(cmd).unwrap()))
-            .build();
+        let session = Session::builder().cmd(Cow::Borrowed(cmd.into())).build();
 
         // pipe() returns (PipeRead, PipeWrite)
         let (stdin_read, stdin_write) = pipe().unwrap();
