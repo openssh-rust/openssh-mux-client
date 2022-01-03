@@ -62,6 +62,6 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ github.event.repository.name }}-${{ runner.os }}-cargo-test-v2
+        key: ${{ github.event.repository.name }}-${{ runner.os }}-cargo-test-with-miri-v2
     - name: Run tests
       run: ./run_test.sh
