@@ -4,7 +4,7 @@ use std::mem::transmute;
 use std::num::NonZeroU8;
 use std::ops::Deref;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 #[repr(transparent)]
 pub struct NonZeroByteSlice([u8]);
 
@@ -51,7 +51,7 @@ impl ToOwned for NonZeroByteSlice {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[repr(transparent)]
 pub struct NonZeroByteVec(Vec<u8>);
 
