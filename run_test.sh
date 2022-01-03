@@ -24,6 +24,9 @@ cd $(dirname $(realpath $0))
 trap stop_ssh_tester 0
 
 testfiles/start.sh
+
+cargo +nightly miri test non_zero_bytes
+
 start_ssh_tester
 
 if [ $# -lt 1 ]; then
