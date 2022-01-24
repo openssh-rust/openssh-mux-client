@@ -1,6 +1,6 @@
 [package]
 name = "openssh-mux-client"
-version = "0.13.3"
+version = "0.13.4"
 edition = "2018"
 
 authors = ["Jiahao XU <Jiahao_XU@outlook.com>"]
