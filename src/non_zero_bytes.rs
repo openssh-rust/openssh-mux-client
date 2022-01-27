@@ -1,5 +1,8 @@
 use std::borrow::{Borrow, ToOwned};
+use std::convert::TryFrom;
+use std::error::Error;
 use std::ffi::{CStr, CString};
+use std::fmt;
 use std::mem::transmute;
 use std::num::NonZeroU8;
 use std::ops::Deref;
@@ -34,10 +37,23 @@ impl NonZeroByteSlice {
     }
 }
 
-impl<'a> From<&'a str> for &'a NonZeroByteSlice {
-    fn from(s: &'a str) -> Self {
-        // safety: str cannot contain 0 byte
-        unsafe { NonZeroByteSlice::new_unchecked(s.as_bytes()) }
+/// The string contains null byte.
+#[derive(Debug)]
+pub struct NullByteError;
+
+impl fmt::Display for NullByteError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "NullByteError")
+    }
+}
+
+impl Error for NullByteError {}
+
+impl<'a> TryFrom<&'a str> for &'a NonZeroByteSlice {
+    type Error = NullByteError;
+
+    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+        NonZeroByteSlice::new(s.as_bytes()).ok_or(NullByteError)
     }
 }
 
