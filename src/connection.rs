@@ -6,9 +6,9 @@ use crate::{constants, Error, EstablishedSession, Response, Result, Session, Soc
 use crate::raw_connection::RawConnection;
 use crate::request::{Fwd, Request};
 
-use core::num::{NonZeroU32, Wrapping};
-
 use std::borrow::Cow;
+use std::convert::TryInto;
+use std::num::{NonZeroU32, Wrapping};
 use std::os::unix::io::RawFd;
 use std::path::Path;
 
@@ -267,8 +267,8 @@ impl Connection {
     pub async fn sftp(self, fds: &[RawFd; 3]) -> Result<EstablishedSession> {
         let session = Session::builder()
             .subsystem(true)
-            .term(Cow::Borrowed("".into()))
-            .cmd(Cow::Borrowed("sftp".into()))
+            .term(Cow::Borrowed("".try_into().unwrap()))
+            .cmd(Cow::Borrowed("sftp".try_into().unwrap()))
             .build();
 
         self.open_new_session(&session, fds).await
@@ -416,10 +416,11 @@ mod tests {
     use super::*;
     use crate::{SessionStatus, TryWaitSessionStatus};
 
-    use core::time::Duration;
+    use std::convert::TryInto;
     use std::env;
     use std::io;
     use std::os::unix::io::AsRawFd;
+    use std::time::Duration;
 
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::{TcpListener, TcpStream};
@@ -479,7 +480,9 @@ mod tests {
         conn: Connection,
         cmd: &str,
     ) -> (EstablishedSession, (PipeWrite, PipeRead)) {
-        let session = Session::builder().cmd(Cow::Borrowed(cmd.into())).build();
+        let session = Session::builder()
+            .cmd(Cow::Borrowed(cmd.try_into().unwrap()))
+            .build();
 
         // pipe() returns (PipeRead, PipeWrite)
         let (stdin_read, stdin_write) = pipe().unwrap();
