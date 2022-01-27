@@ -109,10 +109,11 @@ impl From<&NonZeroByteSlice> for NonZeroByteVec {
     }
 }
 
-impl From<String> for NonZeroByteVec {
-    fn from(s: String) -> Self {
-        // safety: String cannot contain 0 byte
-        unsafe { Self::new_unchecked(s.into_bytes()) }
+impl TryFrom<String> for NonZeroByteVec {
+    type Error = NullByteError;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        Self::new(s.into_bytes()).ok_or(NullByteError)
     }
 }
 
