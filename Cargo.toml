@@ -22,7 +22,7 @@ thiserror = "1.0.29"
 
 sendfd = { version = "0.4.0", features = ["tokio"] }
 tokio = { version = "1.11.0", features = ["net", "io-util"] }
-tokio-io-utility = "0.5.0"
+tokio-io-utility = "0.6.0"
 
 [dev-dependencies]
 tokio = { version = "1.11.0", features = ["rt", "macros", "time"] }
