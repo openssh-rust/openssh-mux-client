@@ -672,6 +672,4 @@ mod tests {
         test_request_stop_listening,
         test_request_stop_listening_impl
     );
-
-    // TODO: Test request::Session::env
 }
