@@ -8,7 +8,7 @@
 
 [![docs](https://docs.rs/openssh-mux-client/badge.svg)](https://docs.rs/openssh-mux-client)
 
-Rust library to communicate with openssh-mux-server using [ssh_mux_format].
+Rust library to communicate with openssh-mux-server using [ssh_format].
 
 The entire crate is built upon [official document on ssh multiplex protocol][protocol doc].
 
@@ -39,5 +39,5 @@ To run tests, make sure you have bash, ssh and docker installed on your computer
 /path/to/repository/run_test.sh
 ```
 
-[ssh_mux_format]: https://github.com/openssh-rust/ssh_mux_format
+[ssh_format]: https://github.com/openssh-rust/ssh_format
 [protocol doc]: https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.mux
