@@ -1,6 +1,6 @@
 # openssh-mux-client
 
-[![Rust](https://github.com/NobodyXu/openssh-mux-client/actions/workflows/rust.yml/badge.svg)](https://github.com/NobodyXu/openssh-mux-client/actions/workflows/rust.yml)
+[![Rust](https://github.com/openssh-rust/openssh-mux-client/actions/workflows/rust.yml/badge.svg)](https://github.com/openssh-rust/openssh-mux-client/actions/workflows/rust.yml)
 
 [![crate.io downloads](https://img.shields.io/crates/d/openssh-mux-client)](https://crates.io/crates/openssh-mux-client)
 
@@ -39,5 +39,5 @@ To run tests, make sure you have bash, ssh and docker installed on your computer
 /path/to/repository/run_test.sh
 ```
 
-[ssh_mux_format]: https://github.com/NobodyXu/ssh_mux_format
+[ssh_mux_format]: https://github.com/openssh-rust/ssh_mux_format
 [protocol doc]: https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.mux
