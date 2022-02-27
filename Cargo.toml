@@ -7,7 +7,7 @@ authors = ["Jiahao XU <Jiahao_XU@outlook.com>"]
 
 license = "MIT"
 description = "openssh mux client."
-repository = "https://github.com/NobodyXu/openssh-mux-client"
+repository = "https://github.com/openssh-rust/openssh-mux-client"
 
 keywords = ["ssh", "openssh", "multiplex", "async", "network"]
 categories = ["asynchronous", "network-programming", "api-bindings"]
