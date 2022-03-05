@@ -1,4 +1,6 @@
-#!/bin/bash -ex
+#!/bin/bash
+
+set -euxo pipefail
 
 ControlPath=/tmp/openssh-mux-client-test.socket
 
@@ -11,7 +13,8 @@ stop_ssh_tester() {
 start_ssh_tester() {
     testfiles/start_ssh.sh
     
-    export ControlMasterPID=`testfiles/get_control_master_pid.sh`
+    ControlMasterPID="$(testfiles/get_control_master_pid.sh)"
+    export ControlMasterPID
     if [ -z "$ControlMasterPID" ]; then
         echo Failed to start ssh
         cat testfiles/*log
@@ -19,7 +22,7 @@ start_ssh_tester() {
     fi
 }
 
-cd $(dirname $(realpath $0))
+cd "$(dirname "$(realpath "$0")")"
 
 trap stop_ssh_tester 0
 
@@ -46,5 +49,5 @@ if [ $# -lt 1 ]; then
         exit 1
     fi
 else
-    cargo test $@ -- --nocapture
+    cargo test "$@" -- --nocapture
 fi
