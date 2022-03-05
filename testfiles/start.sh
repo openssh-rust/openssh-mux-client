@@ -1,10 +1,12 @@
-#!/bin/bash -ex
+#!/bin/bash
 
-cd $(dirname $(realpath $0))
+set -euxo pipefail
+
+cd "$(dirname "$(realpath "$0")")"
 
 docker build -t sshd .
 exec docker run \
-    --mount type=bind,src=${PWD},dst=/tmp/output/ \
+    --mount type=bind,src="${PWD}",dst=/tmp/output/ \
     -d \
     --name ssh_tester \
     -p 2435:22 \
