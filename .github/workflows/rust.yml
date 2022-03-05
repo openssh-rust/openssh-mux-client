@@ -32,7 +32,6 @@ jobs:
         key: ${{ github.event.repository.name }}-${{ runner.os }}-cargo-check-v2
     - name: Run check
       run: |
-        cargo check --all
         cargo clippy --all
         cargo fmt --all -- --check
 
