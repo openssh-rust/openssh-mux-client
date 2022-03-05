@@ -36,12 +36,7 @@ jobs:
         cargo fmt --all -- --check
 
   build:
-    runs-on: ${{ matrix.os }}
-    name: build-${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
