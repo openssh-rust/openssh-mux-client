@@ -1,5 +1,7 @@
 #!/bin/bash
 
-cd $(dirname $(realpath $0))
+set -euxo pipefail
+
+cd "$(dirname "$(realpath "$0")")"
 
 exec diff data -
