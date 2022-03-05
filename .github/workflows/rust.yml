@@ -34,14 +34,7 @@ jobs:
       run: |
         cargo check --all
         cargo clippy --all
-
-  check_format:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v2
-    - name: Check format
-      run: cargo fmt --all -- --check
+        cargo fmt --all -- --check
 
   build:
     runs-on: ${{ matrix.os }}
