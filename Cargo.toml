@@ -16,7 +16,7 @@ categories = ["asynchronous", "network-programming", "api-bindings"]
 serde = { version = "1.0.103", features = ["derive"] }
 ssh_format = "0.12.0"
 
-typed-builder = "0.9.1"
+typed-builder = "0.10.0"
 once_cell = "1.8.0"
 thiserror = "1.0.29"
 
