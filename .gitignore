@@ -20,3 +20,5 @@ Cargo.lock
 testfiles/sshd_log
 testfiles/ssh_log
 testfiles/known_host
+
+.DS_Store
