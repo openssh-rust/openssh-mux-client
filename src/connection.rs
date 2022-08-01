@@ -48,17 +48,23 @@ impl Connection {
 
     pub(crate) async fn read_response(&mut self) -> Result<Response> {
         // Clear content of buffer
+        //
+        // We assume that previous call to `Connection::read_response` does not
+        // read any bytes of the current packet to read in.
         let buffer = self.transformer.get_buffer();
         buffer.clear();
 
-        // Any response takes at least 16 bytes
+        // Deserialize len of the packet (first 4b)
+        //
+        // We will read in at most 16 bytes here to cache the whole packet
+        // because any response takes at least 16 bytes
         //  - 0..4 len of packet
         //  - 4..8 type of the packet
         //  - 8..16 version (`Response::Hello`), `response_id` or `session_id`.
-        buffer.reserve(16);
-
-        // Deserialize len of the packet (first 4b)
-        read_to_vec_rng(&mut self.raw_conn.stream, buffer, 4..).await?;
+        //
+        // Reading more than that will break precondition of next call to
+        // `Connection::read_response`.
+        read_to_vec_rng(&mut self.raw_conn.stream, buffer, 4..16).await?;
 
         let len: u32 = self.deserialize()?;
 
