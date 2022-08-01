@@ -15,7 +15,7 @@ use std::path::Path;
 use serde::Deserialize;
 use ssh_format::Transformer;
 
-use tokio_io_utility::read_exact_to_vec;
+use tokio_io_utility::{read_exact_to_vec, read_to_vec_rng};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum ForwardType {
@@ -46,29 +46,38 @@ impl Connection {
         Ok(self.transformer.deserialize()?.0)
     }
 
-    async fn read_and_deserialize<'a, T>(&'a mut self, size: usize) -> Result<T>
-    where
-        T: Deserialize<'a>,
-    {
-        self.transformer.get_buffer().clear();
-        read_exact_to_vec(
-            &mut self.raw_conn.stream,
-            self.transformer.get_buffer(),
-            size,
-        )
-        .await?;
+    pub(crate) async fn read_response(&mut self) -> Result<Response> {
+        // Clear content of buffer
+        let buffer = self.transformer.get_buffer();
+        buffer.clear();
+
+        // Any response takes at least 16 bytes
+        //  - 0..4 len of packet
+        //  - 4..8 type of the packet
+        //  - 8..16 version (`Response::Hello`), `response_id` or `session_id`.
+        buffer.reserve(16);
+
+        // Deserialize len of the packet (first 4b)
+        read_to_vec_rng(&mut self.raw_conn.stream, buffer, 4..).await?;
+
+        let len: u32 = self.deserialize()?;
+
+        // Remove first 4b representing the len
+        let buffer = self.transformer.get_buffer();
+        buffer.drain(..4);
+
+        // Read in rest of the packet
+        let len: usize = len.try_into().unwrap();
+
+        // Make sure we won't accidentally read in the next packet
+        // since `Connection::read_response` clear the buffer before
+        // reading anything.
+        debug_assert!(buffer.len() <= len);
+
+        let n = len - buffer.len();
+        read_exact_to_vec(&mut self.raw_conn.stream, buffer, n).await?;
 
         self.deserialize()
-    }
-
-    /// Return size of the response.
-    async fn read_header(&mut self) -> Result<u32> {
-        self.read_and_deserialize(4).await
-    }
-
-    pub(crate) async fn read_response(&mut self) -> Result<Response> {
-        let len = self.read_header().await?;
-        self.read_and_deserialize(len as usize).await
     }
 
     fn try_read_and_deserialize<'a, T>(&'a mut self, size: usize) -> Result<Option<T>>
