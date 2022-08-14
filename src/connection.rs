@@ -12,10 +12,10 @@ use std::num::{NonZeroU32, Wrapping};
 use std::os::unix::io::RawFd;
 use std::path::Path;
 
-use serde::Deserialize;
-use ssh_format::Transformer;
+use serde::{de::DeserializeOwned, Serialize};
+use ssh_format::{from_bytes, Serializer};
 
-use tokio_io_utility::{read_exact_to_vec, read_to_vec_rng};
+use tokio_io_utility::read_to_vec_rng;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum ForwardType {
@@ -29,61 +29,53 @@ pub enum ForwardType {
 #[derive(Debug)]
 pub struct Connection {
     raw_conn: RawConnection,
-    transformer: Transformer,
+    serializer: Serializer,
+    read_buffer: Vec<u8>,
     request_id: Wrapping<u32>,
 }
 impl Connection {
     async fn write(&mut self, value: &Request<'_>) -> Result<()> {
-        self.raw_conn
-            .write(self.transformer.serialize(value)?)
-            .await?;
+        self.serializer.reset();
+        value.serialize(&mut self.serializer)?;
+        self.raw_conn.write(self.serializer.get_output()?).await?;
 
         Ok(())
     }
 
-    fn deserialize<'a, T: Deserialize<'a>>(&'a self) -> Result<T> {
+    fn deserialize<T: DeserializeOwned>(read_buffer: &[u8]) -> Result<T> {
         // Ignore any trailing bytes to be forward compatible
-        Ok(self.transformer.deserialize()?.0)
+        Ok(from_bytes(read_buffer)?.0)
     }
 
     pub(crate) async fn read_response(&mut self) -> Result<Response> {
-        // Clear content of buffer
-        //
-        // We assume that previous call to `Connection::read_response` does not
-        // read any bytes of the current packet to read in.
-        let buffer = self.transformer.get_buffer();
-        buffer.clear();
+        let buffer = &mut self.read_buffer;
 
-        // Deserialize len of the packet (first 4b)
-        //
-        // We will read in at most 16 bytes here to cache the whole packet
-        // because any response takes at least 16 bytes
-        //  - 0..4 len of packet
-        //  - 4..8 type of the packet
-        //  - 8..16 version (`Response::Hello`), `response_id` or `session_id`.
-        //
-        // Reading more than that will break precondition of next call to
-        // `Connection::read_response`.
-        read_to_vec_rng(&mut self.raw_conn.stream, buffer, 4..16).await?;
+        if buffer.len() < 4 {
+            let n = 4 - buffer.len();
+            read_to_vec_rng(&mut self.raw_conn.stream, buffer, n..).await?;
+        }
 
-        let len: u32 = self.deserialize()?;
+        // Read in the header
+        let packet_len: u32 = Self::deserialize(&buffer[..4])?;
 
-        // Remove first 4b representing the len
-        let buffer = self.transformer.get_buffer();
-        buffer.drain(..4);
+        let packet_len: usize = packet_len.try_into().unwrap();
 
-        // Read in rest of the packet
-        let len: usize = len.try_into().unwrap();
+        // The first 4 bytes are not counted as the packet body
+        let buffer_len = buffer.len() - 4;
 
-        // Make sure we won't accidentally read in the next packet
-        // since `Connection::read_response` clear the buffer before
-        // reading anything.
-        debug_assert!(buffer.len() <= len);
+        if buffer_len < packet_len {
+            // Read in rest of the packet
+            let n = packet_len - buffer_len;
+            read_to_vec_rng(&mut self.raw_conn.stream, buffer, n..).await?;
+        }
 
-        let n = len - buffer.len();
-        read_exact_to_vec(&mut self.raw_conn.stream, buffer, n).await?;
+        // Deserialize the response
+        let response = Self::deserialize(&buffer[4..(4 + packet_len)])?;
 
-        self.deserialize()
+        // Remove the packet from buffer
+        buffer.drain(..(4 + packet_len));
+
+        Ok(response)
     }
 
     fn get_request_id(&mut self) -> u32 {
@@ -123,9 +115,16 @@ impl Connection {
     }
 
     pub async fn connect<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let mut serializer = Serializer::new();
+
+        // All request packets are at least 12 bytes large.
+        serializer.reserve(12);
+
         Self {
             raw_conn: RawConnection::connect(path).await?,
-            transformer: Transformer::new(),
+            serializer,
+            // All reponse packets are at least 16 bytes large.
+            read_buffer: Vec::with_capacity(16),
             request_id: Wrapping(0),
         }
         .exchange_hello()
@@ -226,11 +225,7 @@ impl Connection {
 
         // EstablishedSession does not send any request
         // It merely wait for response.
-        //
-        // 8 bytes are enough to fit any response except for Failure,
-        // which includes a String.
-        self.transformer.get_buffer().resize(64, 0);
-        self.transformer.get_buffer().shrink_to_fit();
+        self.serializer = Serializer::new();
 
         Ok(EstablishedSession {
             conn: self,
@@ -383,7 +378,7 @@ impl Connection {
     ///
     /// **Only suitable to use in `Drop::drop`.**
     pub fn request_stop_listening_sync(self) -> Result<()> {
-        shutdown_mux_master_from(self.raw_conn.into_std()?, self.transformer)
+        shutdown_mux_master_from(self.raw_conn.into_std()?)
     }
 }
 
