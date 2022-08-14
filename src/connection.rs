@@ -86,45 +86,6 @@ impl Connection {
         self.deserialize()
     }
 
-    fn try_read_and_deserialize<'a, T>(&'a mut self, size: usize) -> Result<Option<T>>
-    where
-        T: Deserialize<'a>,
-    {
-        self.transformer.get_buffer().resize(size, 0);
-
-        // Ignore any trailing bytes to be forward compatible
-        match self.raw_conn.try_read(self.transformer.get_buffer())? {
-            Some(_) => Ok(Some(self.deserialize()?)),
-            None => Ok(None),
-        }
-    }
-
-    fn try_read_header(&mut self) -> Result<Option<u32>> {
-        self.try_read_and_deserialize(4)
-    }
-
-    /// If it is readable, then the entire packet can be read in blocking manner.
-    ///
-    /// While this is indeed a blocking call, it is unlikely to block since ssh mux
-    /// master most likely would send it using one write/send.
-    ///
-    /// Even if it does employ multiple write/send, these functions would just return
-    /// immediately since the buffer for the unix socket is empty and should be big
-    /// enough for one message.
-    ///
-    /// If it is not readable, then it would return Ok(None).
-    pub(crate) fn try_read_response(&mut self) -> Result<Option<Response>> {
-        let len = match self.try_read_header()? {
-            Some(len) => len as usize,
-            None => return Ok(None),
-        };
-        loop {
-            if let Some(response) = self.try_read_and_deserialize(len)? {
-                break Ok(Some(response));
-            }
-        }
-    }
-
     fn get_request_id(&mut self) -> u32 {
         let request_id = self.request_id.0;
         self.request_id += Wrapping(1);
@@ -429,7 +390,7 @@ impl Connection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{SessionStatus, TryWaitSessionStatus};
+    use crate::SessionStatus;
 
     use std::convert::TryInto;
     use std::env;
@@ -636,40 +597,6 @@ mod tests {
         test_unordered_local_socket_forward,
         test_local_socket_forward_impl
     );
-
-    async fn test_unordered_try_wait_impl(conn: Connection) {
-        use TryWaitSessionStatus::{Exited, InProgress};
-
-        let (mut established_session, stdios) = create_remote_process(conn, "cat").await;
-
-        // cat would not exit until stdin is closed
-        for _i in 0..100 {
-            match established_session.try_wait().unwrap() {
-                InProgress(session) => established_session = session,
-                _ => panic!("Unexpected return value from try_wait"),
-            }
-        }
-
-        drop(stdios);
-
-        // Wait for the remote process to exit
-        sleep(Duration::from_millis(100)).await;
-
-        // try_wait for three times
-        for _i in 0..3 {
-            match established_session.try_wait().unwrap() {
-                InProgress(session) => established_session = session,
-                Exited { exit_value } => {
-                    assert_matches!(exit_value, Some(value) if value == 0);
-                    return;
-                }
-                _ => panic!("Unexpected return value from try_wait"),
-            }
-        }
-
-        panic!("try_wait timed out");
-    }
-    run_test!(test_unordered_try_wait, test_unordered_try_wait_impl);
 
     async fn test_request_stop_listening_impl(mut conn: Connection) {
         conn.request_stop_listening().await.unwrap();
