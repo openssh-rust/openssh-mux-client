@@ -29,42 +29,6 @@ impl RawConnection {
         Ok(())
     }
 
-    /// If it is readable, then the entire packet can be read in blocking manner.
-    ///
-    /// While this is indeed a blocking call, it is unlikely to block since ssh mux
-    /// master most likely would send it using one write/send.
-    ///
-    /// Even if it does employ multiple write/send, these functions would just return
-    /// immediately since the buffer for the unix socket is empty and should be big
-    /// enough for one message.
-    ///
-    /// If it is not readable, then it would return Ok(None).
-    pub fn try_read(&self, bytes: &mut [u8]) -> Result<Option<()>> {
-        let mut nread = 0;
-
-        while nread < bytes.len() {
-            match self.stream.try_read(&mut bytes[nread..]) {
-                Ok(n) => {
-                    if n == 0 {
-                        let err: io::Error = io::ErrorKind::UnexpectedEof.into();
-                        return Err(err.into());
-                    }
-
-                    nread += n;
-                }
-                Err(e) => {
-                    if e.kind() != io::ErrorKind::WouldBlock {
-                        return Err(e.into());
-                    } else if nread == 0 {
-                        return Ok(None);
-                    }
-                }
-            }
-        }
-
-        Ok(Some(()))
-    }
-
     /// Send fds with "\0"
     pub async fn send_with_fds(&self, fds: &[RawFd]) -> Result<()> {
         let byte = &[0];

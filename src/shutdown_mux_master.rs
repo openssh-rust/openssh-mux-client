@@ -123,13 +123,10 @@ pub fn shutdown_mux_master<P: AsRef<Path>>(path: P) -> Result<()> {
     Connection::connect(path)?.request_stop_listening()
 }
 
-pub(crate) fn shutdown_mux_master_from(
-    raw_conn: UnixStream,
-    transformer: Transformer,
-) -> Result<()> {
+pub(crate) fn shutdown_mux_master_from(raw_conn: UnixStream) -> Result<()> {
     Connection {
         raw_conn,
-        transformer,
+        transformer: Transformer::new(),
     }
     .request_stop_listening()
 }
