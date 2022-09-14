@@ -4,7 +4,6 @@ use std::{
     error::Error,
     ffi::{CStr, CString},
     fmt,
-    mem::transmute,
     num::NonZeroU8,
     ops::Deref,
 };
@@ -31,7 +30,7 @@ impl NonZeroByteSlice {
     ///
     /// * `bytes` - Must not contain `0`.
     pub unsafe fn new_unchecked(bytes: &[u8]) -> &Self {
-        transmute(bytes)
+        &*(bytes as *const [u8] as *const Self)
     }
 
     pub const fn into_inner(&self) -> &[u8] {
