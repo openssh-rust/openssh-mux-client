@@ -113,7 +113,7 @@ pub struct Session<'a> {
     pub escape_ch: char,
 
     /// Generally set to `$TERM`.
-    #[builder(default_code = r#"Cow::Borrowed(default_config::get_term().into())"#)]
+    #[builder(default_code = r#"Cow::Borrowed(default_config::get_term())"#)]
     pub term: Cow<'a, NonZeroByteSlice>,
     pub cmd: Cow<'a, NonZeroByteSlice>,
 }
