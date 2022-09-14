@@ -2,7 +2,6 @@
 
 use crate::{
     constants,
-    raw_connection::RawConnection,
     request::{Fwd, Request},
     shutdown_mux_master::shutdown_mux_master_from,
     Error, EstablishedSession, Response, Result, Session, Socket,
@@ -11,13 +10,16 @@ use crate::{
 use std::{
     borrow::Cow,
     convert::TryInto,
+    io,
     num::{NonZeroU32, Wrapping},
     os::unix::io::RawFd,
     path::Path,
 };
 
+use sendfd::SendWithFd;
 use serde::{de::DeserializeOwned, Serialize};
 use ssh_format::{from_bytes, Serializer};
+use tokio::{io::AsyncWriteExt, net::UnixStream};
 use tokio_io_utility::read_to_vec_rng;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -31,7 +33,7 @@ pub enum ForwardType {
 /// All methods of this struct is not cancellation safe.
 #[derive(Debug)]
 pub struct Connection {
-    raw_conn: RawConnection,
+    raw_conn: UnixStream,
     serializer: Serializer,
     read_buffer: Vec<u8>,
     request_id: Wrapping<u32>,
@@ -55,7 +57,7 @@ impl Connection {
 
         if buffer.len() < 4 {
             let n = 4 - buffer.len();
-            read_to_vec_rng(&mut self.raw_conn.stream, buffer, n..).await?;
+            read_to_vec_rng(&mut self.raw_conn, buffer, n..).await?;
         }
 
         // Read in the header
@@ -69,7 +71,7 @@ impl Connection {
         if buffer_len < packet_len {
             // Read in rest of the packet
             let n = packet_len - buffer_len;
-            read_to_vec_rng(&mut self.raw_conn.stream, buffer, n..).await?;
+            read_to_vec_rng(&mut self.raw_conn, buffer, n..).await?;
         }
 
         // Deserialize the response
@@ -79,6 +81,28 @@ impl Connection {
         buffer.drain(..(4 + packet_len));
 
         Ok(response)
+    }
+
+    /// Send fds with "\0"
+    async fn send_with_fds(&self, fds: &[RawFd]) -> Result<()> {
+        let byte = &[0];
+
+        loop {
+            self.raw_conn.writable().await?;
+
+            match SendWithFd::send_with_fd(&self.raw_conn, byte, fds) {
+                Ok(n) => {
+                    if n == 1 {
+                        break Ok(());
+                    }
+                }
+                Err(e) => {
+                    if e.kind() != io::ErrorKind::WouldBlock {
+                        break Err(e.into());
+                    }
+                }
+            }
+        }
     }
 
     fn get_request_id(&mut self) -> u32 {
@@ -124,7 +148,7 @@ impl Connection {
         serializer.reserve(12);
 
         Self {
-            raw_conn: RawConnection::connect(path).await?,
+            raw_conn: UnixStream::connect(path).await?,
             serializer,
             // All reponse packets are at least 16 bytes large.
             read_buffer: Vec::with_capacity(16),
@@ -173,7 +197,7 @@ impl Connection {
         })
         .await?;
         for fd in fds {
-            self.raw_conn.send_with_fds(&[*fd]).await?;
+            self.send_with_fds(&[*fd]).await?;
         }
 
         let session_id = match self.read_response().await? {
