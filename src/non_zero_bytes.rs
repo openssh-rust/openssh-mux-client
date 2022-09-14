@@ -147,10 +147,7 @@ mod tests {
 
     #[test]
     fn test_byte_slice_with_zero() {
-        let mut vec = Vec::with_capacity(10);
-        for _ in 0..9 {
-            vec.push(1);
-        }
+        let mut vec: Vec<_> = (0..9).collect();
         vec.push(0);
 
         let option = NonZeroByteSlice::new(&vec);
