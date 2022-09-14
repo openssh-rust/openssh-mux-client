@@ -441,7 +441,7 @@ mod tests {
     ) {
         stdios.0.write_all(data).await.unwrap();
 
-        let mut buffer = [0 as u8; SIZE];
+        let mut buffer = [0_u8; SIZE];
         stdios.1.read_exact(&mut buffer).await.unwrap();
 
         assert_eq!(data, &buffer);
@@ -480,8 +480,8 @@ mod tests {
         // All test data here must end with '\n', otherwise cat would output nothing
         // and the test would hang forever.
 
-        test_roundtrip(&mut stdios, &b"0134131dqwdqdx13as\n").await;
-        test_roundtrip(&mut stdios, &b"Whats' Up?\n").await;
+        test_roundtrip(&mut stdios, b"0134131dqwdqdx13as\n").await;
+        test_roundtrip(&mut stdios, b"Whats' Up?\n").await;
 
         drop(stdios);
 
@@ -522,7 +522,7 @@ mod tests {
 
         const DATA: &[u8] = "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n".as_bytes();
 
-        let mut buffer = [0 as u8; DATA.len()];
+        let mut buffer = [0_u8; DATA.len()];
         output.read_exact(&mut buffer).await.unwrap();
 
         assert_eq!(DATA, &buffer);
@@ -572,7 +572,7 @@ mod tests {
         eprintln!("Reading");
 
         const DATA: &[u8] = "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n".as_bytes();
-        let mut buffer = [0 as u8; DATA.len()];
+        let mut buffer = [0_u8; DATA.len()];
         output.read_exact(&mut buffer).await.unwrap();
 
         assert_eq!(DATA, buffer);
