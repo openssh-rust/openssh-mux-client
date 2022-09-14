@@ -89,6 +89,11 @@ impl NonZeroByteVec {
         Some(Self(bytes))
     }
 
+    pub fn from_bytes_remove_nul(mut bytes: Vec<u8>) -> Self {
+        bytes.retain(|byte| *byte != b'\0');
+        Self(bytes)
+    }
+
     /// # Safety
     ///
     /// * `bytes` - Must not contain `0`.
@@ -164,5 +169,12 @@ mod tests {
     fn test_byte_vec_without_zero() {
         let vec: Vec<_> = (1..102).collect();
         NonZeroByteVec::new(vec).unwrap();
+    }
+
+    #[test]
+    fn test_byte_vec_from_bytes_remove_nul_zero() {
+        let mut vec: Vec<_> = (0..3).collect();
+        vec.push(0);
+        assert_eq!(NonZeroByteVec::from_bytes_remove_nul(vec).0, vec![1, 2]);
     }
 }
