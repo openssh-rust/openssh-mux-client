@@ -42,9 +42,13 @@ impl Connection {
     async fn write(&mut self, value: &Request<'_>) -> Result<()> {
         self.serializer.reset();
         value.serialize(&mut self.serializer)?;
-        self.raw_conn.write(self.serializer.get_output()?).await?;
 
-        Ok(())
+        let n = self.raw_conn.write(self.serializer.get_output()?).await?;
+        if n == 0 {
+            Err(io::Error::from(io::ErrorKind::UnexpectedEof).into())
+        } else {
+            Ok(())
+        }
     }
 
     fn deserialize<T: DeserializeOwned>(read_buffer: &[u8]) -> Result<T> {
