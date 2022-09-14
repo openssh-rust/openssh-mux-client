@@ -1,5 +1,7 @@
-use std::env;
-use std::ffi::{CStr, CString};
+use std::{
+    env,
+    ffi::{CStr, CString},
+};
 
 use once_cell::sync::OnceCell;
 

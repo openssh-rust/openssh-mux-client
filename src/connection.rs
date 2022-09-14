@@ -1,20 +1,23 @@
 #![forbid(unsafe_code)]
 
-use crate::shutdown_mux_master::shutdown_mux_master_from;
-use crate::{constants, Error, EstablishedSession, Response, Result, Session, Socket};
+use crate::{
+    constants,
+    raw_connection::RawConnection,
+    request::{Fwd, Request},
+    shutdown_mux_master::shutdown_mux_master_from,
+    Error, EstablishedSession, Response, Result, Session, Socket,
+};
 
-use crate::raw_connection::RawConnection;
-use crate::request::{Fwd, Request};
-
-use std::borrow::Cow;
-use std::convert::TryInto;
-use std::num::{NonZeroU32, Wrapping};
-use std::os::unix::io::RawFd;
-use std::path::Path;
+use std::{
+    borrow::Cow,
+    convert::TryInto,
+    num::{NonZeroU32, Wrapping},
+    os::unix::io::RawFd,
+    path::Path,
+};
 
 use serde::{de::DeserializeOwned, Serialize};
 use ssh_format::{from_bytes, Serializer};
-
 use tokio_io_utility::read_to_vec_rng;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]

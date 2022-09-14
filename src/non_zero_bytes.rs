@@ -1,11 +1,13 @@
-use std::borrow::{Borrow, ToOwned};
-use std::convert::TryFrom;
-use std::error::Error;
-use std::ffi::{CStr, CString};
-use std::fmt;
-use std::mem::transmute;
-use std::num::NonZeroU8;
-use std::ops::Deref;
+use std::{
+    borrow::{Borrow, ToOwned},
+    convert::TryFrom,
+    error::Error,
+    ffi::{CStr, CString},
+    fmt,
+    mem::transmute,
+    num::NonZeroU8,
+    ops::Deref,
+};
 
 use serde::Serialize;
 

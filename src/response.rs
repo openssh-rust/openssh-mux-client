@@ -1,11 +1,10 @@
 #![forbid(unsafe_code)]
 
-use core::marker::PhantomData;
 use serde::{
     de::{Deserializer, EnumAccess, Error, VariantAccess, Visitor},
     Deserialize,
 };
-use std::fmt;
+use std::{fmt, marker::PhantomData};
 
 use super::constants;
 

@@ -2,12 +2,9 @@
 
 use super::{constants, default_config, NonZeroByteSlice};
 
-use std::borrow::Cow;
-use std::path::Path;
+use std::{borrow::Cow, path::Path};
 
-use serde::ser::Serializer;
-use serde::Serialize;
-
+use serde::{Serialize, Serializer};
 use typed_builder::TypedBuilder;
 
 #[derive(Copy, Clone, Debug)]
