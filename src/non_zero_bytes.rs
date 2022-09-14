@@ -29,7 +29,7 @@ impl NonZeroByteSlice {
     /// # Safety
     ///
     /// * `bytes` - Must not contain `0`.
-    pub unsafe fn new_unchecked(bytes: &[u8]) -> &Self {
+    pub const unsafe fn new_unchecked(bytes: &[u8]) -> &Self {
         &*(bytes as *const [u8] as *const Self)
     }
 
