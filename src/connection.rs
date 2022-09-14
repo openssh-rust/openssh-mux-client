@@ -98,6 +98,9 @@ impl Connection {
                 Ok(n) => {
                     if n == 1 {
                         break Ok(());
+                    } else {
+                        debug_assert_eq!(n, 0);
+                        break Err(io::Error::from(io::ErrorKind::UnexpectedEof).into());
                     }
                 }
                 Err(e) => {
