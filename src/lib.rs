@@ -5,7 +5,6 @@ mod connection;
 mod constants;
 mod error;
 mod non_zero_bytes;
-mod raw_connection;
 mod request;
 mod response;
 mod session;

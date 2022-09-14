@@ -2,10 +2,7 @@
 
 use crate::{constants, request::Request, Error, Response, Result};
 
-use std::io::Read;
-use std::io::Write;
-use std::os::unix::net::UnixStream;
-use std::path::Path;
+use std::{io::Read, io::Write, os::unix::net::UnixStream, path::Path};
 
 use serde::Deserialize;
 use ssh_format::Transformer;

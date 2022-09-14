@@ -2,12 +2,9 @@
 
 use super::{constants, default_config, NonZeroByteSlice};
 
-use std::borrow::Cow;
-use std::path::Path;
+use std::{borrow::Cow, path::Path};
 
-use serde::ser::Serializer;
-use serde::Serialize;
-
+use serde::{Serialize, Serializer};
 use typed_builder::TypedBuilder;
 
 #[derive(Copy, Clone, Debug)]
@@ -39,9 +36,6 @@ pub enum Request<'a> {
     /// The client may use this to return its local tty to "cooked" mode.
     NewSession {
         request_id: u32,
-        /// Must be set to empty string
-        reserved: &'static str,
-
         session: &'a Session<'a>,
     },
 
@@ -76,13 +70,12 @@ impl<'a> Serialize for Request<'a> {
             ),
             NewSession {
                 request_id,
-                reserved,
                 session,
             } => serializer.serialize_newtype_variant(
                 "Request",
                 MUX_C_NEW_SESSION,
                 "NewSession",
-                &(*request_id, reserved, *session),
+                &(*request_id, "", *session),
             ),
             OpenFwd { request_id, fwd } => serializer.serialize_newtype_variant(
                 "Request",
@@ -120,7 +113,7 @@ pub struct Session<'a> {
     pub escape_ch: char,
 
     /// Generally set to `$TERM`.
-    #[builder(default_code = r#"Cow::Borrowed(default_config::get_term().into())"#)]
+    #[builder(default_code = r#"Cow::Borrowed(default_config::get_term())"#)]
     pub term: Cow<'a, NonZeroByteSlice>,
     pub cmd: Cow<'a, NonZeroByteSlice>,
 }

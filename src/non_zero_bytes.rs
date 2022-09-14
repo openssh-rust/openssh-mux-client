@@ -1,11 +1,12 @@
-use std::borrow::{Borrow, ToOwned};
-use std::convert::TryFrom;
-use std::error::Error;
-use std::ffi::{CStr, CString};
-use std::fmt;
-use std::mem::transmute;
-use std::num::NonZeroU8;
-use std::ops::Deref;
+use std::{
+    borrow::{Borrow, ToOwned},
+    convert::TryFrom,
+    error::Error,
+    ffi::{CStr, CString},
+    fmt,
+    num::NonZeroU8,
+    ops::Deref,
+};
 
 use serde::Serialize;
 
@@ -28,8 +29,8 @@ impl NonZeroByteSlice {
     /// # Safety
     ///
     /// * `bytes` - Must not contain `0`.
-    pub unsafe fn new_unchecked(bytes: &[u8]) -> &Self {
-        transmute(bytes)
+    pub const unsafe fn new_unchecked(bytes: &[u8]) -> &Self {
+        &*(bytes as *const [u8] as *const Self)
     }
 
     pub const fn into_inner(&self) -> &[u8] {
@@ -85,6 +86,11 @@ impl NonZeroByteVec {
         }
 
         Some(Self(bytes))
+    }
+
+    pub fn from_bytes_remove_nul(mut bytes: Vec<u8>) -> Self {
+        bytes.retain(|byte| *byte != b'\0');
+        Self(bytes)
     }
 
     /// # Safety
@@ -145,10 +151,7 @@ mod tests {
 
     #[test]
     fn test_byte_slice_with_zero() {
-        let mut vec = Vec::with_capacity(10);
-        for _ in 0..9 {
-            vec.push(1);
-        }
+        let mut vec: Vec<_> = (0..9).collect();
         vec.push(0);
 
         let option = NonZeroByteSlice::new(&vec);
@@ -165,5 +168,12 @@ mod tests {
     fn test_byte_vec_without_zero() {
         let vec: Vec<_> = (1..102).collect();
         NonZeroByteVec::new(vec).unwrap();
+    }
+
+    #[test]
+    fn test_byte_vec_from_bytes_remove_nul_zero() {
+        let mut vec: Vec<_> = (0..3).collect();
+        vec.push(0);
+        assert_eq!(NonZeroByteVec::from_bytes_remove_nul(vec).0, vec![1, 2]);
     }
 }

@@ -1,20 +1,25 @@
 #![forbid(unsafe_code)]
 
-use crate::shutdown_mux_master::shutdown_mux_master_from;
-use crate::{constants, Error, EstablishedSession, Response, Result, Session, Socket};
+use crate::{
+    constants,
+    request::{Fwd, Request},
+    shutdown_mux_master::shutdown_mux_master_from,
+    Error, EstablishedSession, Response, Result, Session, Socket,
+};
 
-use crate::raw_connection::RawConnection;
-use crate::request::{Fwd, Request};
+use std::{
+    borrow::Cow,
+    convert::TryInto,
+    io,
+    num::{NonZeroU32, Wrapping},
+    os::unix::io::RawFd,
+    path::Path,
+};
 
-use std::borrow::Cow;
-use std::convert::TryInto;
-use std::num::{NonZeroU32, Wrapping};
-use std::os::unix::io::RawFd;
-use std::path::Path;
-
+use sendfd::SendWithFd;
 use serde::{de::DeserializeOwned, Serialize};
 use ssh_format::{from_bytes, Serializer};
-
+use tokio::{io::AsyncWriteExt, net::UnixStream};
 use tokio_io_utility::read_to_vec_rng;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -28,7 +33,7 @@ pub enum ForwardType {
 /// All methods of this struct is not cancellation safe.
 #[derive(Debug)]
 pub struct Connection {
-    raw_conn: RawConnection,
+    raw_conn: UnixStream,
     serializer: Serializer,
     read_buffer: Vec<u8>,
     request_id: Wrapping<u32>,
@@ -37,9 +42,13 @@ impl Connection {
     async fn write(&mut self, value: &Request<'_>) -> Result<()> {
         self.serializer.reset();
         value.serialize(&mut self.serializer)?;
-        self.raw_conn.write(self.serializer.get_output()?).await?;
 
-        Ok(())
+        let n = self.raw_conn.write(self.serializer.get_output()?).await?;
+        if n == 0 {
+            Err(io::Error::from(io::ErrorKind::UnexpectedEof).into())
+        } else {
+            Ok(())
+        }
     }
 
     fn deserialize<T: DeserializeOwned>(read_buffer: &[u8]) -> Result<T> {
@@ -52,7 +61,7 @@ impl Connection {
 
         if buffer.len() < 4 {
             let n = 4 - buffer.len();
-            read_to_vec_rng(&mut self.raw_conn.stream, buffer, n..).await?;
+            read_to_vec_rng(&mut self.raw_conn, buffer, n..).await?;
         }
 
         // Read in the header
@@ -66,7 +75,7 @@ impl Connection {
         if buffer_len < packet_len {
             // Read in rest of the packet
             let n = packet_len - buffer_len;
-            read_to_vec_rng(&mut self.raw_conn.stream, buffer, n..).await?;
+            read_to_vec_rng(&mut self.raw_conn, buffer, n..).await?;
         }
 
         // Deserialize the response
@@ -76,6 +85,31 @@ impl Connection {
         buffer.drain(..(4 + packet_len));
 
         Ok(response)
+    }
+
+    /// Send fds with "\0"
+    async fn send_with_fds(&self, fds: &[RawFd]) -> Result<()> {
+        let byte = &[0];
+
+        loop {
+            self.raw_conn.writable().await?;
+
+            match SendWithFd::send_with_fd(&self.raw_conn, byte, fds) {
+                Ok(n) => {
+                    if n == 1 {
+                        break Ok(());
+                    } else {
+                        debug_assert_eq!(n, 0);
+                        break Err(io::Error::from(io::ErrorKind::UnexpectedEof).into());
+                    }
+                }
+                Err(e) => {
+                    if e.kind() != io::ErrorKind::WouldBlock {
+                        break Err(e.into());
+                    }
+                }
+            }
+        }
     }
 
     fn get_request_id(&mut self) -> u32 {
@@ -121,7 +155,7 @@ impl Connection {
         serializer.reserve(12);
 
         Self {
-            raw_conn: RawConnection::connect(path).await?,
+            raw_conn: UnixStream::connect(path).await?,
             serializer,
             // All reponse packets are at least 16 bytes large.
             read_buffer: Vec::with_capacity(16),
@@ -166,12 +200,11 @@ impl Connection {
 
         self.write(&Request::NewSession {
             request_id,
-            reserved: "",
             session,
         })
         .await?;
         for fd in fds {
-            self.raw_conn.send_with_fds(&[*fd]).await?;
+            self.send_with_fds(&[*fd]).await?;
         }
 
         let session_id = match self.read_response().await? {
@@ -441,7 +474,7 @@ mod tests {
     ) {
         stdios.0.write_all(data).await.unwrap();
 
-        let mut buffer = [0 as u8; SIZE];
+        let mut buffer = [0_u8; SIZE];
         stdios.1.read_exact(&mut buffer).await.unwrap();
 
         assert_eq!(data, &buffer);
@@ -480,8 +513,8 @@ mod tests {
         // All test data here must end with '\n', otherwise cat would output nothing
         // and the test would hang forever.
 
-        test_roundtrip(&mut stdios, &b"0134131dqwdqdx13as\n").await;
-        test_roundtrip(&mut stdios, &b"Whats' Up?\n").await;
+        test_roundtrip(&mut stdios, b"0134131dqwdqdx13as\n").await;
+        test_roundtrip(&mut stdios, b"Whats' Up?\n").await;
 
         drop(stdios);
 
@@ -522,7 +555,7 @@ mod tests {
 
         const DATA: &[u8] = "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n".as_bytes();
 
-        let mut buffer = [0 as u8; DATA.len()];
+        let mut buffer = [0_u8; DATA.len()];
         output.read_exact(&mut buffer).await.unwrap();
 
         assert_eq!(DATA, &buffer);
@@ -572,7 +605,7 @@ mod tests {
         eprintln!("Reading");
 
         const DATA: &[u8] = "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n".as_bytes();
-        let mut buffer = [0 as u8; DATA.len()];
+        let mut buffer = [0_u8; DATA.len()];
         output.read_exact(&mut buffer).await.unwrap();
 
         assert_eq!(DATA, buffer);
