@@ -39,9 +39,6 @@ pub enum Request<'a> {
     /// The client may use this to return its local tty to "cooked" mode.
     NewSession {
         request_id: u32,
-        /// Must be set to empty string
-        reserved: &'static str,
-
         session: &'a Session<'a>,
     },
 
@@ -76,13 +73,12 @@ impl<'a> Serialize for Request<'a> {
             ),
             NewSession {
                 request_id,
-                reserved,
                 session,
             } => serializer.serialize_newtype_variant(
                 "Request",
                 MUX_C_NEW_SESSION,
                 "NewSession",
-                &(*request_id, reserved, *session),
+                &(*request_id, "", *session),
             ),
             OpenFwd { request_id, fwd } => serializer.serialize_newtype_variant(
                 "Request",

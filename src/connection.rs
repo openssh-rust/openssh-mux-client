@@ -166,7 +166,6 @@ impl Connection {
 
         self.write(&Request::NewSession {
             request_id,
-            reserved: "",
             session,
         })
         .await?;
