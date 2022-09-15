@@ -153,13 +153,13 @@ impl Connection {
         let mut serializer = Serializer::new();
 
         // All request packets are at least 12 bytes large.
-        serializer.reserve(12);
+        serializer.reserve(80);
 
         Self {
             raw_conn: UnixStream::connect(path).await?,
             serializer,
             // All reponse packets are at least 16 bytes large.
-            read_buffer: Vec::with_capacity(16),
+            read_buffer: Vec::with_capacity(32),
             request_id: Wrapping(0),
         }
         .exchange_hello()
