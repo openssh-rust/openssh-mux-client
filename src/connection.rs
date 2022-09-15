@@ -94,6 +94,7 @@ impl Connection {
         loop {
             self.raw_conn.writable().await?;
 
+            // send_with_fd calls `UnixStream::try_io`
             match SendWithFd::send_with_fd(&self.raw_conn, byte, fds) {
                 Ok(n) => {
                     if n == 1 {
