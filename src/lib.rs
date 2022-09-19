@@ -1,7 +1,6 @@
 #[cfg(not(unix))]
 compile_error!("This crate can only be used on unix");
 
-mod utils;
 mod connection;
 mod constants;
 mod error;
@@ -10,6 +9,7 @@ mod request;
 mod response;
 mod session;
 mod shutdown_mux_master;
+mod utils;
 
 pub mod default_config;
 
