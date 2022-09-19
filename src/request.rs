@@ -8,7 +8,7 @@ use serde::{Serialize, Serializer};
 use typed_builder::TypedBuilder;
 
 #[derive(Copy, Clone, Debug)]
-pub enum Request<'a> {
+pub(crate) enum Request<'a> {
     /// Response with `Response::Hello`.
     Hello { version: u32 },
 
@@ -36,7 +36,7 @@ pub enum Request<'a> {
     /// The client may use this to return its local tty to "cooked" mode.
     NewSession {
         request_id: u32,
-        session: &'a Session<'a>,
+        session: SessionZeroCopy,
     },
 
     /// A server may reply with `Response::Ok`, `Response::RemotePort`,
@@ -91,6 +91,23 @@ impl<'a> Serialize for Request<'a> {
             ),
         }
     }
+}
+
+/// Zero copy version of [`Session`]
+#[derive(Copy, Clone, Debug, Serialize)]
+pub(crate) struct SessionZeroCopy {
+    pub tty: bool,
+
+    pub x11_forwarding: bool,
+
+    pub agent: bool,
+
+    pub subsystem: bool,
+
+    pub escape_ch: char,
+
+    /// len of [`Session::term`].
+    pub term_len: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, TypedBuilder)]
