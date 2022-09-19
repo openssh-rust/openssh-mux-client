@@ -158,8 +158,10 @@ impl Connection {
     pub async fn connect<P: AsRef<Path>>(path: P) -> Result<Self> {
         let mut serializer = Serializer::new();
 
-        // All request packets are at least 12 bytes large.
-        serializer.reserve(80);
+        // All request packets are at least 12 bytes large,
+        // and variant [`Request::NewSession`] takes 36 bytes to
+        // serialize.
+        serializer.reserve(36);
 
         Self {
             raw_conn: UnixStream::connect(path).await?,
