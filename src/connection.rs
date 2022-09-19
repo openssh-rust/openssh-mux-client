@@ -2,8 +2,9 @@
 
 use crate::{
     constants,
-    request::{Fwd, Request},
+    request::{Fwd, Request, SessionZeroCopy},
     shutdown_mux_master::shutdown_mux_master_from,
+    utils::serialize_u32,
     Error, EstablishedSession, Response, Result, Session, Socket,
 };
 
@@ -11,6 +12,7 @@ use std::{
     borrow::Cow,
     convert::TryInto,
     io,
+    io::IoSlice,
     num::{NonZeroU32, Wrapping},
     os::unix::io::RawFd,
     path::Path,
@@ -20,7 +22,7 @@ use sendfd::SendWithFd;
 use serde::{de::DeserializeOwned, Serialize};
 use ssh_format::{from_bytes, Serializer};
 use tokio::{io::AsyncWriteExt, net::UnixStream};
-use tokio_io_utility::read_to_vec_rng;
+use tokio_io_utility::{read_to_vec_rng, write_vectored_all};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum ForwardType {
@@ -39,8 +41,12 @@ pub struct Connection {
     request_id: Wrapping<u32>,
 }
 impl Connection {
-    async fn write(&mut self, value: &Request<'_>) -> Result<()> {
+    fn reset_serializer(&mut self) {
         self.serializer.reset();
+    }
+
+    async fn write(&mut self, value: &Request<'_>) -> Result<()> {
+        self.reset_serializer();
         value.serialize(&mut self.serializer)?;
 
         let n = self.raw_conn.write(self.serializer.get_output()?).await?;
@@ -152,8 +158,10 @@ impl Connection {
     pub async fn connect<P: AsRef<Path>>(path: P) -> Result<Self> {
         let mut serializer = Serializer::new();
 
-        // All request packets are at least 12 bytes large.
-        serializer.reserve(80);
+        // All request packets are at least 12 bytes large,
+        // and variant [`Request::NewSession`] takes 36 bytes to
+        // serialize.
+        serializer.reserve(36);
 
         Self {
             raw_conn: UnixStream::connect(path).await?,
@@ -199,11 +207,51 @@ impl Connection {
 
         let request_id = self.get_request_id();
 
-        self.write(&Request::NewSession {
+        // Prepare to serialize
+        let term = session.term.as_ref().into_inner();
+        let cmd = session.cmd.as_ref().into_inner();
+
+        let term_len: u32 = term
+            .len()
+            .try_into()
+            .map_err(|_| ssh_format::Error::TooLong)?;
+
+        let cmd_len: u32 = cmd
+            .len()
+            .try_into()
+            .map_err(|_| ssh_format::Error::TooLong)?;
+
+        let request = Request::NewSession {
             request_id,
-            session,
-        })
-        .await?;
+            session: SessionZeroCopy {
+                tty: session.tty,
+                x11_forwarding: session.x11_forwarding,
+                agent: session.agent,
+                subsystem: session.subsystem,
+                escape_ch: session.escape_ch,
+                term_len,
+            },
+        };
+
+        // Serialize
+        self.reset_serializer();
+
+        request.serialize(&mut self.serializer)?;
+        let serialized_header = self
+            .serializer
+            .get_output_with_data(term_len + /* len of cmd */ 4 + cmd_len)?;
+        let serialized_cmd_len = serialize_u32(cmd_len);
+
+        // Write them to self.raw_conn
+        let mut io_slices = [
+            IoSlice::new(serialized_header),
+            IoSlice::new(term),
+            IoSlice::new(&serialized_cmd_len),
+            IoSlice::new(cmd),
+        ];
+
+        write_vectored_all(&mut self.raw_conn, &mut io_slices).await?;
+
         for fd in fds {
             self.send_with_fds(&[*fd]).await?;
         }

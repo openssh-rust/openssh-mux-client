@@ -9,6 +9,7 @@ mod request;
 mod response;
 mod session;
 mod shutdown_mux_master;
+mod utils;
 
 pub mod default_config;
 
