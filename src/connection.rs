@@ -445,7 +445,6 @@ impl Connection {
         use Response::*;
 
         let fwd = Fwd::Dynamic { listen_socket };
-        let fwd = &fwd;
 
         let request_id = self.get_request_id();
         self.send_fwd_request(request_id, &fwd).await?;
