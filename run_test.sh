@@ -57,3 +57,6 @@ trap stop_ssh_tester 0
 "$project_dir"/testfiles/start.sh
 
 test_mux_client "$@"
+
+cd "$project_dir"/crates/mux-client
+cargo test "$@"
