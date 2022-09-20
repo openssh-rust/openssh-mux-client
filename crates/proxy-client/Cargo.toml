@@ -3,6 +3,13 @@ name = "openssh-proxy-client"
 version = "0.1.0"
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Jiahao XU <Jiahao_XU@outlook.com>"]
+
+license = "MIT"
+description = "openssh proxy client for openssh multiplex server."
+repository = "https://github.com/openssh-rust/openssh-mux-client"
+
+keywords = ["ssh", "openssh", "multiplex", "async", "network"]
+categories = ["asynchronous", "network-programming", "api-bindings"]
 
 [dependencies]
