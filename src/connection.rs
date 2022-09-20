@@ -4,7 +4,7 @@ use crate::{
     constants,
     request::{Fwd, Request, SessionZeroCopy},
     shutdown_mux_master::shutdown_mux_master_from,
-    utils::serialize_u32,
+    utils::{serialize_u32, SliceExt},
     Error, EstablishedSession, Response, Result, Session, Socket,
 };
 
@@ -211,15 +211,8 @@ impl Connection {
         let term = session.term.as_ref().into_inner();
         let cmd = session.cmd.as_ref().into_inner();
 
-        let term_len: u32 = term
-            .len()
-            .try_into()
-            .map_err(|_| ssh_format::Error::TooLong)?;
-
-        let cmd_len: u32 = cmd
-            .len()
-            .try_into()
-            .map_err(|_| ssh_format::Error::TooLong)?;
+        let term_len: u32 = term.get_len_as_u32()?;
+        let cmd_len: u32 = cmd.get_len_as_u32()?;
 
         let request = Request::NewSession {
             request_id,
@@ -335,15 +328,8 @@ impl Connection {
         let serialized_listen_port = serialize_u32(listen_port);
         let serialized_connect_port = serialize_u32(connect_port);
 
-        let listen_addr_len: u32 = listen_addr
-            .len()
-            .try_into()
-            .map_err(|_| ssh_format::Error::TooLong)?;
-
-        let connect_addr_len: u32 = connect_addr
-            .len()
-            .try_into()
-            .map_err(|_| ssh_format::Error::TooLong)?;
+        let listen_addr_len: u32 = listen_addr.get_len_as_u32()?;
+        let connect_addr_len: u32 = connect_addr.get_len_as_u32()?;
 
         let request = Request::OpenFwd {
             request_id,

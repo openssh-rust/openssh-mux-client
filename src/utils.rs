@@ -1,4 +1,6 @@
+use super::Result;
 use serde::{Serialize, Serializer};
+use std::convert::TryInto;
 
 /// Serialize one `u32` as ssh_format.
 pub(crate) fn serialize_u32(int: u32) -> [u8; 4] {
@@ -24,5 +26,23 @@ impl<T> MaybeOwned<'_, T> {
 impl<T: Serialize> Serialize for MaybeOwned<'_, T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.as_ref().serialize(serializer)
+    }
+}
+
+pub(crate) trait SliceExt {
+    fn get_len_as_u32(&self) -> Result<u32>;
+}
+
+impl<T> SliceExt for [T] {
+    fn get_len_as_u32(&self) -> Result<u32> {
+        self.len()
+            .try_into()
+            .map_err(|_| ssh_format::Error::TooLong.into())
+    }
+}
+
+impl SliceExt for str {
+    fn get_len_as_u32(&self) -> Result<u32> {
+        self.as_bytes().get_len_as_u32()
     }
 }
