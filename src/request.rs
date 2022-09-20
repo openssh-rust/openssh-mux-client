@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use super::{constants, default_config, NonZeroByteSlice};
+use super::{constants, default_config, utils::MaybeOwned, NonZeroByteSlice};
 
 use std::{borrow::Cow, path::Path};
 
@@ -8,7 +8,7 @@ use serde::{Serialize, Serializer};
 use typed_builder::TypedBuilder;
 
 #[derive(Copy, Clone, Debug)]
-pub(crate) enum Request<'a> {
+pub(crate) enum Request {
     /// Response with `Response::Hello`.
     Hello { version: u32 },
 
@@ -44,7 +44,7 @@ pub(crate) enum Request<'a> {
     ///
     /// For dynamically allocated listen port the server replies with
     /// `Request::RemotePort`.
-    OpenFwd { request_id: u32, fwd: &'a Fwd<'a> },
+    OpenFwd { request_id: u32, fwd_mode: u32 },
 
     /// A client may request the master to stop accepting new multiplexing requests
     /// and remove its listener socket.
@@ -53,7 +53,7 @@ pub(crate) enum Request<'a> {
     /// `Response::Failure`.
     StopListening { request_id: u32 },
 }
-impl<'a> Serialize for Request<'a> {
+impl Serialize for Request {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use constants::*;
         use Request::*;
@@ -77,11 +77,14 @@ impl<'a> Serialize for Request<'a> {
                 "NewSession",
                 &(*request_id, "", *session),
             ),
-            OpenFwd { request_id, fwd } => serializer.serialize_newtype_variant(
+            OpenFwd {
+                request_id,
+                fwd_mode,
+            } => serializer.serialize_newtype_variant(
                 "Request",
                 MUX_C_OPEN_FWD,
                 "OpenFwd",
-                &(*request_id, *fwd),
+                &(*request_id, fwd_mode),
             ),
             StopListening { request_id } => serializer.serialize_newtype_variant(
                 "Request",
@@ -149,41 +152,40 @@ pub enum Fwd<'a> {
         listen_socket: &'a Socket<'a>,
     },
 }
-impl<'a> Serialize for Fwd<'a> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+impl<'a> Fwd<'a> {
+    pub(crate) fn as_serializable(&self) -> (u32, &'a Socket<'a>, MaybeOwned<'a, Socket<'a>>) {
         use Fwd::*;
 
-        match self {
+        match *self {
             Local {
                 listen_socket,
                 connect_socket,
-            } => serializer.serialize_newtype_variant(
-                "Fwd",
+            } => (
                 constants::MUX_FWD_LOCAL,
-                "Local",
-                &(*listen_socket, *connect_socket),
+                listen_socket,
+                MaybeOwned::Borrowed(connect_socket),
             ),
             Remote {
                 listen_socket,
                 connect_socket,
-            } => serializer.serialize_newtype_variant(
-                "Fwd",
+            } => (
                 constants::MUX_FWD_REMOTE,
-                "Remote",
-                &(*listen_socket, *connect_socket),
+                listen_socket,
+                MaybeOwned::Borrowed(connect_socket),
             ),
-            Dynamic { listen_socket } => serializer.serialize_newtype_variant(
-                "Fwd",
+            Dynamic { listen_socket } => (
                 constants::MUX_FWD_DYNAMIC,
-                "Dynamic",
-                &(
-                    *listen_socket,
-                    Socket::UnixSocket {
-                        path: Path::new("").into(),
-                    },
-                ),
+                listen_socket,
+                MaybeOwned::Owned(Socket::UnixSocket {
+                    path: Path::new("").into(),
+                }),
             ),
         }
+    }
+}
+impl<'a> Serialize for Fwd<'a> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.as_serializable().serialize(serializer)
     }
 }
 
@@ -192,15 +194,23 @@ pub enum Socket<'a> {
     UnixSocket { path: Cow<'a, Path> },
     TcpSocket { port: u32, host: Cow<'a, str> },
 }
-impl<'a> Serialize for Socket<'a> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+impl Socket<'_> {
+    pub(crate) fn as_serializable(&self) -> (Cow<'_, str>, u32) {
         use Socket::*;
 
         let unix_socket_port: i32 = -2;
 
         match self {
-            UnixSocket { path } => (path, unix_socket_port as u32).serialize(serializer),
-            TcpSocket { port, host } => (host, *port).serialize(serializer),
+            // Serialize impl for Path calls to_str and ret err if failed,
+            // so calling to_string_lossy is OK as it does not break backward
+            // compatibility.
+            UnixSocket { path } => (path.to_string_lossy(), unix_socket_port as u32),
+            TcpSocket { port, host } => (Cow::Borrowed(host), *port),
         }
+    }
+}
+impl<'a> Serialize for Socket<'a> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.as_serializable().serialize(serializer)
     }
 }

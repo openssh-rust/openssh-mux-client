@@ -4,7 +4,7 @@ use crate::{
     constants,
     request::{Fwd, Request, SessionZeroCopy},
     shutdown_mux_master::shutdown_mux_master_from,
-    utils::serialize_u32,
+    utils::{serialize_u32, SliceExt},
     Error, EstablishedSession, Response, Result, Session, Socket,
 };
 
@@ -45,7 +45,7 @@ impl Connection {
         self.serializer.reset();
     }
 
-    async fn write(&mut self, value: &Request<'_>) -> Result<()> {
+    async fn write(&mut self, value: &Request) -> Result<()> {
         self.reset_serializer();
         value.serialize(&mut self.serializer)?;
 
@@ -211,15 +211,8 @@ impl Connection {
         let term = session.term.as_ref().into_inner();
         let cmd = session.cmd.as_ref().into_inner();
 
-        let term_len: u32 = term
-            .len()
-            .try_into()
-            .map_err(|_| ssh_format::Error::TooLong)?;
-
-        let cmd_len: u32 = cmd
-            .len()
-            .try_into()
-            .map_err(|_| ssh_format::Error::TooLong)?;
+        let term_len: u32 = term.get_len_as_u32()?;
+        let cmd_len: u32 = cmd.get_len_as_u32()?;
 
         let request = Request::NewSession {
             request_id,
@@ -327,6 +320,58 @@ impl Connection {
         self.open_new_session(&session, fds).await
     }
 
+    async fn send_fwd_request(&mut self, request_id: u32, fwd: &Fwd<'_>) -> Result<()> {
+        let (fwd_mode, listen_socket, connect_socket) = fwd.as_serializable();
+        let (listen_addr, listen_port) = listen_socket.as_serializable();
+        let (connect_addr, connect_port) = connect_socket.as_ref().as_serializable();
+
+        let serialized_listen_port = serialize_u32(listen_port);
+        let serialized_connect_port = serialize_u32(connect_port);
+
+        let listen_addr_len: u32 = listen_addr.get_len_as_u32()?;
+        let connect_addr_len: u32 = connect_addr.get_len_as_u32()?;
+
+        let request = Request::OpenFwd {
+            request_id,
+            fwd_mode,
+        };
+
+        // Serialize
+        self.reset_serializer();
+
+        request.serialize(&mut self.serializer)?;
+        let serialized_header = self.serializer.get_output_with_data(
+            // len
+            4 +
+            listen_addr_len +
+            // port
+            4 +
+            // len
+            4 +
+            connect_addr_len
+            // port
+            + 4,
+        )?;
+
+        let serialized_listen_addr_len = serialize_u32(listen_addr_len);
+        let serialized_connect_addr_len = serialize_u32(connect_addr_len);
+
+        // Write them to self.raw_conn
+        let mut io_slices = [
+            IoSlice::new(serialized_header),
+            IoSlice::new(&serialized_listen_addr_len),
+            IoSlice::new(listen_addr.as_bytes()),
+            IoSlice::new(&serialized_listen_port),
+            IoSlice::new(&serialized_connect_addr_len),
+            IoSlice::new(connect_addr.as_bytes()),
+            IoSlice::new(&serialized_connect_port),
+        ];
+
+        write_vectored_all(&mut self.raw_conn, &mut io_slices).await?;
+
+        Ok(())
+    }
+
     /// Request for local/remote port forwarding.
     ///
     /// # Warning
@@ -351,10 +396,9 @@ impl Connection {
                 connect_socket,
             },
         };
-        let fwd = &fwd;
 
         let request_id = self.get_request_id();
-        self.write(&Request::OpenFwd { request_id, fwd }).await?;
+        self.send_fwd_request(request_id, &fwd).await?;
 
         match self.read_response().await? {
             Ok { response_id } => Self::check_response_id(request_id, response_id),
@@ -387,10 +431,9 @@ impl Connection {
         use Response::*;
 
         let fwd = Fwd::Dynamic { listen_socket };
-        let fwd = &fwd;
 
         let request_id = self.get_request_id();
-        self.write(&Request::OpenFwd { request_id, fwd }).await?;
+        self.send_fwd_request(request_id, &fwd).await?;
 
         match self.read_response().await? {
             RemotePort {
