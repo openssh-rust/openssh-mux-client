@@ -58,5 +58,5 @@ trap stop_ssh_tester 0
 
 test_mux_client "$@"
 
-cd "$project_dir"/crates/mux-client
+cd "$project_dir"/crates/proxy-client
 cargo test "$@"
