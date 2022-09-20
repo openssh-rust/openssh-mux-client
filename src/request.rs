@@ -8,7 +8,7 @@ use serde::{Serialize, Serializer};
 use typed_builder::TypedBuilder;
 
 #[derive(Copy, Clone, Debug)]
-pub(crate) enum Request<'a> {
+pub(crate) enum Request {
     /// Response with `Response::Hello`.
     Hello { version: u32 },
 
@@ -44,7 +44,7 @@ pub(crate) enum Request<'a> {
     ///
     /// For dynamically allocated listen port the server replies with
     /// `Request::RemotePort`.
-    OpenFwd { request_id: u32, fwd: &'a Fwd<'a> },
+    OpenFwd { request_id: u32, fwd_mode: u32 },
 
     /// A client may request the master to stop accepting new multiplexing requests
     /// and remove its listener socket.
@@ -53,7 +53,7 @@ pub(crate) enum Request<'a> {
     /// `Response::Failure`.
     StopListening { request_id: u32 },
 }
-impl<'a> Serialize for Request<'a> {
+impl Serialize for Request {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use constants::*;
         use Request::*;
@@ -77,11 +77,14 @@ impl<'a> Serialize for Request<'a> {
                 "NewSession",
                 &(*request_id, "", *session),
             ),
-            OpenFwd { request_id, fwd } => serializer.serialize_newtype_variant(
+            OpenFwd {
+                request_id,
+                fwd_mode,
+            } => serializer.serialize_newtype_variant(
                 "Request",
                 MUX_C_OPEN_FWD,
                 "OpenFwd",
-                &(*request_id, *fwd),
+                &(*request_id, fwd_mode),
             ),
             StopListening { request_id } => serializer.serialize_newtype_variant(
                 "Request",

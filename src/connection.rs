@@ -45,7 +45,7 @@ impl Connection {
         self.serializer.reset();
     }
 
-    async fn write(&mut self, value: &Request<'_>) -> Result<()> {
+    async fn write(&mut self, value: &Request) -> Result<()> {
         self.reset_serializer();
         value.serialize(&mut self.serializer)?;
 
@@ -328,7 +328,61 @@ impl Connection {
     }
 
     async fn send_fwd_request(&mut self, request_id: u32, fwd: &Fwd<'_>) -> Result<()> {
-        self.write(&Request::OpenFwd { request_id, fwd }).await?;
+        let (fwd_mode, listen_socket, connect_socket) = fwd.as_serializable();
+        let (listen_addr, listen_port) = listen_socket.as_serializable();
+        let (connect_addr, connect_port) = connect_socket.as_ref().as_serializable();
+
+        let serialized_listen_port = serialize_u32(listen_port);
+        let serialized_connect_port = serialize_u32(connect_port);
+
+        let listen_addr_len: u32 = listen_addr
+            .len()
+            .try_into()
+            .map_err(|_| ssh_format::Error::TooLong)?;
+
+        let connect_addr_len: u32 = connect_addr
+            .len()
+            .try_into()
+            .map_err(|_| ssh_format::Error::TooLong)?;
+
+        let request = Request::OpenFwd {
+            request_id,
+            fwd_mode,
+        };
+
+        // Serialize
+        self.reset_serializer();
+
+        request.serialize(&mut self.serializer)?;
+        let serialized_header = self.serializer.get_output_with_data(
+            // len
+            4 +
+            listen_addr_len +
+            // port
+            4 +
+            // len
+            4 +
+            connect_addr_len
+            // port
+            + 4,
+        )?;
+
+        let serialized_listen_addr_len = serialize_u32(listen_addr_len);
+        let serialized_connect_addr_len = serialize_u32(connect_addr_len);
+
+        // Write them to self.raw_conn
+        let mut io_slices = [
+            IoSlice::new(serialized_header),
+            IoSlice::new(&serialized_listen_addr_len),
+            IoSlice::new(listen_addr.as_bytes()),
+            IoSlice::new(&serialized_listen_port),
+            IoSlice::new(&serialized_connect_addr_len),
+            IoSlice::new(connect_addr.as_bytes()),
+            IoSlice::new(&serialized_connect_port),
+        ];
+
+        write_vectored_all(&mut self.raw_conn, &mut io_slices).await?;
+
         Ok(())
     }
 

@@ -13,7 +13,7 @@ struct Connection {
 }
 
 impl Connection {
-    fn write(&mut self, value: &Request<'_>) -> Result<()> {
+    fn write(&mut self, value: &Request) -> Result<()> {
         self.raw_conn
             .write_all(self.transformer.serialize(value)?)?;
 
