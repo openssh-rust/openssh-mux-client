@@ -2,32 +2,34 @@
 
 set -euxo pipefail
 
+project_dir="$(dirname "$(realpath "$0")")"
+
 ControlPath=/tmp/openssh-mux-client-test.socket
 
 stop_ssh_tester() {
     exit_code=$?
-    testfiles/stop.sh
+    "$project_dir"/testfiles/stop.sh
     exit $exit_code
 }
 
 start_ssh_tester() {
-    testfiles/start_ssh.sh
+    "$project_dir"/testfiles/start_ssh.sh
     
-    ControlMasterPID="$(testfiles/get_control_master_pid.sh)"
+    ControlMasterPID="$("$project_dir"/testfiles/get_control_master_pid.sh)"
     export ControlMasterPID
     if [ -z "$ControlMasterPID" ]; then
         echo Failed to start ssh
-        cat testfiles/*log
+        cat "$project_dir"/testfiles/*log
         exit 1
     fi
 }
 
 test_mux_client() {
-    cd crates/mux-client
+    cd "$project_dir"/crates/mux-client
 
     cargo +nightly miri test non_zero_bytes
 
-    ../../start_ssh_tester
+    start_ssh_tester
 
     if [ $# -lt 1 ]; then
         cargo test test_unordered -- --nocapture
@@ -38,7 +40,7 @@ test_mux_client() {
             exit 1
         fi
 
-        ../../start_ssh_tester
+        start_ssh_tester
         cargo test test_sync_request_stop_listening -- --nocapture
 
         if [ -e $ControlPath ]; then
@@ -50,10 +52,8 @@ test_mux_client() {
     fi
 }
 
-cd "$(dirname "$(realpath "$0")")"
-
 trap stop_ssh_tester 0
 
-testfiles/start.sh
+"$project_dir"/testfiles/start.sh
 
 test_mux_client "$@"
