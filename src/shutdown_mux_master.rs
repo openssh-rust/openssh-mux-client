@@ -4,18 +4,29 @@ use crate::{constants, request::Request, Error, Response, Result};
 
 use std::{io::Read, io::Write, os::unix::net::UnixStream, path::Path};
 
-use serde::Deserialize;
-use ssh_format::Transformer;
+use serde::{Deserialize, Serialize};
+use ssh_format::{from_bytes, Serializer};
 
 struct Connection {
     raw_conn: UnixStream,
-    transformer: Transformer,
+    serializer: Serializer,
 }
 
 impl Connection {
     fn write(&mut self, value: &Request) -> Result<()> {
-        self.raw_conn
-            .write_all(self.transformer.serialize(value)?)?;
+        let serializer = &mut self.serializer;
+
+        serializer.reset_counter();
+        // Reserve the header
+        serializer.output.resize(4, 0);
+
+        value.serialize(&mut *serializer)?;
+
+        let header = serializer.create_header(0)?;
+        // Write the header
+        serializer.output[..4].copy_from_slice(&header);
+
+        self.raw_conn.write_all(&serializer.output)?;
 
         Ok(())
     }
@@ -24,11 +35,14 @@ impl Connection {
     where
         T: Deserialize<'a>,
     {
-        self.transformer.get_buffer().resize(size, 0);
-        self.raw_conn.read_exact(self.transformer.get_buffer())?;
+        let buffer = &mut self.serializer.output;
+
+        buffer.resize(size, 0);
+
+        self.raw_conn.read_exact(buffer)?;
 
         // Ignore any trailing bytes to be forward compatible
-        Ok(self.transformer.deserialize()?.0)
+        Ok(from_bytes(buffer)?.0)
     }
 
     /// Return size of the response.
@@ -70,11 +84,14 @@ impl Connection {
     }
 
     fn connect<P: AsRef<Path>>(path: P) -> Result<Self> {
+        Self::new(UnixStream::connect(path)?).exchange_hello()
+    }
+
+    fn new(raw_conn: UnixStream) -> Self {
         Self {
-            raw_conn: UnixStream::connect(path)?,
-            transformer: Transformer::new(),
+            raw_conn,
+            serializer: Serializer::new(Vec::with_capacity(20)),
         }
-        .exchange_hello()
     }
 
     /// Request the master to stop accepting new multiplexing requests
@@ -121,11 +138,7 @@ pub fn shutdown_mux_master<P: AsRef<Path>>(path: P) -> Result<()> {
 }
 
 pub(crate) fn shutdown_mux_master_from(raw_conn: UnixStream) -> Result<()> {
-    Connection {
-        raw_conn,
-        transformer: Transformer::new(),
-    }
-    .request_stop_listening()
+    Connection::new(raw_conn).request_stop_listening()
 }
 
 #[cfg(test)]
