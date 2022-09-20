@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use super::{constants, default_config, NonZeroByteSlice};
+use super::{constants, default_config, utils::MaybeOwned, NonZeroByteSlice};
 
 use std::{borrow::Cow, path::Path};
 
@@ -149,41 +149,40 @@ pub enum Fwd<'a> {
         listen_socket: &'a Socket<'a>,
     },
 }
-impl<'a> Serialize for Fwd<'a> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+impl<'a> Fwd<'a> {
+    pub(crate) fn as_serializable(&self) -> (u32, &'a Socket<'a>, MaybeOwned<'a, Socket<'a>>) {
         use Fwd::*;
 
-        match self {
+        match *self {
             Local {
                 listen_socket,
                 connect_socket,
-            } => serializer.serialize_newtype_variant(
-                "Fwd",
+            } => (
                 constants::MUX_FWD_LOCAL,
-                "Local",
-                &(*listen_socket, *connect_socket),
+                listen_socket,
+                MaybeOwned::Borrowed(connect_socket),
             ),
             Remote {
                 listen_socket,
                 connect_socket,
-            } => serializer.serialize_newtype_variant(
-                "Fwd",
+            } => (
                 constants::MUX_FWD_REMOTE,
-                "Remote",
-                &(*listen_socket, *connect_socket),
+                listen_socket,
+                MaybeOwned::Borrowed(connect_socket),
             ),
-            Dynamic { listen_socket } => serializer.serialize_newtype_variant(
-                "Fwd",
+            Dynamic { listen_socket } => (
                 constants::MUX_FWD_DYNAMIC,
-                "Dynamic",
-                &(
-                    *listen_socket,
-                    Socket::UnixSocket {
-                        path: Path::new("").into(),
-                    },
-                ),
+                listen_socket,
+                MaybeOwned::Owned(Socket::UnixSocket {
+                    path: Path::new("").into(),
+                }),
             ),
         }
+    }
+}
+impl<'a> Serialize for Fwd<'a> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.as_serializable().serialize(serializer)
     }
 }
 
