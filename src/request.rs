@@ -192,15 +192,23 @@ pub enum Socket<'a> {
     UnixSocket { path: Cow<'a, Path> },
     TcpSocket { port: u32, host: Cow<'a, str> },
 }
-impl<'a> Serialize for Socket<'a> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+impl Socket<'_> {
+    pub(crate) fn as_serializable(&self) -> (Cow<'_, str>, u32) {
         use Socket::*;
 
         let unix_socket_port: i32 = -2;
 
         match self {
-            UnixSocket { path } => (path, unix_socket_port as u32).serialize(serializer),
-            TcpSocket { port, host } => (host, *port).serialize(serializer),
+            // Serialize impl for Path calls to_str and ret err if failed,
+            // so calling to_string_lossy is OK as it does not break backward
+            // compatibility.
+            UnixSocket { path } => (path.to_string_lossy(), unix_socket_port as u32),
+            TcpSocket { port, host } => (Cow::Borrowed(host), *port),
         }
+    }
+}
+impl<'a> Serialize for Socket<'a> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.as_serializable().serialize(serializer)
     }
 }
