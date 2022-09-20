@@ -108,9 +108,6 @@ pub(crate) struct SessionZeroCopy {
     pub subsystem: bool,
 
     pub escape_ch: char,
-
-    /// len of [`Session::term`].
-    pub term_len: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, TypedBuilder)]

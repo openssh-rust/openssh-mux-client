@@ -222,7 +222,6 @@ impl Connection {
                 agent: session.agent,
                 subsystem: session.subsystem,
                 escape_ch: session.escape_ch,
-                term_len,
             },
         };
 
@@ -230,14 +229,17 @@ impl Connection {
         self.reset_serializer();
 
         request.serialize(&mut self.serializer)?;
-        let serialized_header = self
-            .serializer
-            .get_output_with_data(term_len + /* len of cmd */ 4 + cmd_len)?;
+        let serialized_header = self.serializer.get_output_with_data(
+            /* len of term */ 4 + term_len + /* len of cmd */ 4 + cmd_len,
+        )?;
+
         let serialized_cmd_len = serialize_u32(cmd_len);
+        let serialized_term_len = serialize_u32(term_len);
 
         // Write them to self.raw_conn
         let mut io_slices = [
             IoSlice::new(serialized_header),
+            IoSlice::new(&serialized_term_len),
             IoSlice::new(term),
             IoSlice::new(&serialized_cmd_len),
             IoSlice::new(cmd),
