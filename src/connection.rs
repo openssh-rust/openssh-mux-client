@@ -327,6 +327,11 @@ impl Connection {
         self.open_new_session(&session, fds).await
     }
 
+    async fn send_fwd_request(&mut self, request_id: u32, fwd: &Fwd<'_>) -> Result<()> {
+        self.write(&Request::OpenFwd { request_id, fwd }).await?;
+        Ok(())
+    }
+
     /// Request for local/remote port forwarding.
     ///
     /// # Warning
@@ -351,10 +356,9 @@ impl Connection {
                 connect_socket,
             },
         };
-        let fwd = &fwd;
 
         let request_id = self.get_request_id();
-        self.write(&Request::OpenFwd { request_id, fwd }).await?;
+        self.send_fwd_request(request_id, &fwd).await?;
 
         match self.read_response().await? {
             Ok { response_id } => Self::check_response_id(request_id, response_id),
@@ -390,7 +394,7 @@ impl Connection {
         let fwd = &fwd;
 
         let request_id = self.get_request_id();
-        self.write(&Request::OpenFwd { request_id, fwd }).await?;
+        self.send_fwd_request(request_id, &fwd).await?;
 
         match self.read_response().await? {
             RemotePort {
