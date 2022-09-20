@@ -21,7 +21,7 @@ use std::{
 use sendfd::SendWithFd;
 use serde::{de::DeserializeOwned, Serialize};
 use ssh_format::{from_bytes, Serializer};
-use tokio::{io::AsyncWriteExt, net::UnixStream};
+use tokio::net::UnixStream;
 use tokio_io_utility::{read_to_vec_rng, write_vectored_all};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -42,19 +42,23 @@ pub struct Connection {
 }
 impl Connection {
     fn reset_serializer(&mut self) {
-        self.serializer.reset();
+        self.serializer.reset_counter();
+        self.serializer.output.clear();
     }
 
     async fn write(&mut self, value: &Request) -> Result<()> {
         self.reset_serializer();
         value.serialize(&mut self.serializer)?;
 
-        let n = self.raw_conn.write(self.serializer.get_output()?).await?;
-        if n == 0 {
-            Err(io::Error::from(io::ErrorKind::UnexpectedEof).into())
-        } else {
-            Ok(())
-        }
+        let header = self.serializer.create_header(0)?;
+
+        write_vectored_all(
+            &mut self.raw_conn,
+            &mut [IoSlice::new(&header), IoSlice::new(&self.serializer.output)],
+        )
+        .await?;
+
+        Ok(())
     }
 
     fn deserialize<T: DeserializeOwned>(read_buffer: &[u8]) -> Result<T> {
@@ -156,16 +160,12 @@ impl Connection {
     }
 
     pub async fn connect<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let mut serializer = Serializer::new();
-
-        // All request packets are at least 12 bytes large,
-        // and variant [`Request::NewSession`] takes 36 bytes to
-        // serialize.
-        serializer.reserve(36);
-
         Self {
             raw_conn: UnixStream::connect(path).await?,
-            serializer,
+            // All request packets are at least 12 bytes large,
+            // and variant [`Request::NewSession`] takes 36 bytes to
+            // serialize.
+            serializer: Serializer::new(Vec::with_capacity(36)),
             // All reponse packets are at least 16 bytes large.
             read_buffer: Vec::with_capacity(32),
             request_id: Wrapping(0),
@@ -229,7 +229,7 @@ impl Connection {
         self.reset_serializer();
 
         request.serialize(&mut self.serializer)?;
-        let serialized_header = self.serializer.get_output_with_data(
+        let serialized_header = self.serializer.create_header(
             /* len of term */ 4 + term_len + /* len of cmd */ 4 + cmd_len,
         )?;
 
@@ -238,7 +238,8 @@ impl Connection {
 
         // Write them to self.raw_conn
         let mut io_slices = [
-            IoSlice::new(serialized_header),
+            IoSlice::new(&serialized_header),
+            IoSlice::new(&self.serializer.output),
             IoSlice::new(&serialized_term_len),
             IoSlice::new(term),
             IoSlice::new(&serialized_cmd_len),
@@ -302,7 +303,7 @@ impl Connection {
 
         // EstablishedSession does not send any request
         // It merely wait for response.
-        self.serializer = Serializer::new();
+        self.serializer.output = Vec::new();
 
         Ok(EstablishedSession {
             conn: self,
@@ -342,7 +343,7 @@ impl Connection {
         self.reset_serializer();
 
         request.serialize(&mut self.serializer)?;
-        let serialized_header = self.serializer.get_output_with_data(
+        let serialized_header = self.serializer.create_header(
             // len
             4 +
             listen_addr_len +
@@ -360,7 +361,8 @@ impl Connection {
 
         // Write them to self.raw_conn
         let mut io_slices = [
-            IoSlice::new(serialized_header),
+            IoSlice::new(&serialized_header),
+            IoSlice::new(&self.serializer.output),
             IoSlice::new(&serialized_listen_addr_len),
             IoSlice::new(listen_addr.as_bytes()),
             IoSlice::new(&serialized_listen_port),
