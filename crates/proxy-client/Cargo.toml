@@ -20,3 +20,4 @@ ssh_format = { version = "0.13.2", features = ["bytes"] }
 thiserror = "1.0.29"
 tokio = { version = "1.11.0", features = ["rt", "io-util"] }
 tokio-io-utility = "0.7.1"
+non-zero-byte-slice = { version = "0.1.0", path = "../non-zero-byte-slice" }
