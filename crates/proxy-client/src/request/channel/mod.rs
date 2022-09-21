@@ -4,7 +4,7 @@ use super::Request;
 use crate::{constants::*, IpAddr};
 
 #[derive(Clone, Debug, Serialize)]
-pub(crate) struct Channel<T> {
+pub(crate) struct OpenChannel<T> {
     #[serde(borrow)]
     channel_type: &'static &'static str,
 
@@ -14,14 +14,14 @@ pub(crate) struct Channel<T> {
     channel_specific_data: T,
 }
 
-impl<T: Serialize> Channel<T> {
+impl<T: Serialize> OpenChannel<T> {
     fn new(
         channel_type: &'static &'static str,
         sender_channel: u32,
         initial_windows_size: u32,
         max_packet_size: u32,
         channel_specific_data: T,
-    ) -> Request<Channel<T>> {
+    ) -> Request<OpenChannel<T>> {
         Request::new(
             SSH_MSG_CHANNEL_OPEN,
             Self {
@@ -43,8 +43,8 @@ impl Session {
         sender_channel: u32,
         initial_windows_size: u32,
         max_packet_size: u32,
-    ) -> Request<Channel<Session>> {
-        Channel::new(
+    ) -> Request<OpenChannel<Session>> {
+        OpenChannel::new(
             &"session",
             sender_channel,
             initial_windows_size,
@@ -70,8 +70,8 @@ impl<'a> LocalForward<'a> {
         max_packet_size: u32,
         remote_addr: IpAddr<'a>,
         originator_addr: IpAddr<'a>,
-    ) -> Request<Channel<LocalForward<'a>>> {
-        Channel::new(
+    ) -> Request<OpenChannel<LocalForward<'a>>> {
+        OpenChannel::new(
             &"direct-tcpip",
             sender_channel,
             initial_windows_size,
