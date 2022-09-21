@@ -1,0 +1,13 @@
+[package]
+name = "non-zero-byte-slice"
+version = "0.1.0"
+edition = "2018"
+
+authors = ["Jiahao XU <Jiahao_XU@outlook.com>"]
+
+license = "MIT"
+description = "openssh mux client."
+repository = "https://github.com/openssh-rust/openssh-mux-client"
+
+[dependencies]
+serde = { version = "1.0.103", features = ["derive"] }

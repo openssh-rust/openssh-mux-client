@@ -27,8 +27,6 @@ start_ssh_tester() {
 test_mux_client() {
     cd "$project_dir"/crates/mux-client
 
-    cargo +nightly miri test non_zero_bytes
-
     start_ssh_tester
 
     if [ $# -lt 1 ]; then
@@ -54,6 +52,12 @@ test_mux_client() {
 
 trap stop_ssh_tester 0
 
+cd "$project_dir"/crates/non-zero-byte-slice
+cargo +nightly miri test
+
 "$project_dir"/testfiles/start.sh
 
 test_mux_client "$@"
+
+cd "$project_dir"/crates/proxy-client
+cargo test "$@"
