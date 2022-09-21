@@ -5,7 +5,6 @@ use crate::{constants::*, IpAddr};
 
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct OpenChannel<T> {
-    #[serde(borrow)]
     channel_type: &'static &'static str,
 
     sender_channel: u32,
