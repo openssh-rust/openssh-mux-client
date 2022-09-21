@@ -6,8 +6,11 @@ use ssh_format::Serializer;
 
 use super::Error;
 
+mod channel;
+pub(crate) use channel::*;
+
 #[derive(Copy, Clone, Debug, Serialize)]
-pub struct Request<T> {
+pub(crate) struct Request<T> {
     /// Must be 0
     padding_len: u8,
     packet_type: u8,
