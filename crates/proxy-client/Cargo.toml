@@ -16,7 +16,7 @@ categories = ["asynchronous", "network-programming", "api-bindings"]
 awaitable = "0.3.3"
 bytes = "1.2.1"
 serde = { version = "1.0.103", features = ["derive"] }
-ssh_format = "0.13.0"
+ssh_format = "0.13.2"
 thiserror = "1.0.29"
 tokio = { version = "1.11.0", features = ["rt", "io-util"] }
 tokio-io-utility = "0.7.1"
