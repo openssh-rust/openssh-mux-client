@@ -1,2 +1,2 @@
 [workspace]
-members = ["crates/mux-client", "crates/proxy-client"]
+members = ["crates/mux-client", "crates/proxy-client", "crates/non-zero-byte-slice"]

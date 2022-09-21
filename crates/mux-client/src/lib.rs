@@ -4,7 +4,6 @@ compile_error!("This crate can only be used on unix");
 mod connection;
 mod constants;
 mod error;
-mod non_zero_bytes;
 mod request;
 mod response;
 mod session;
@@ -13,7 +12,7 @@ mod utils;
 
 pub mod default_config;
 
-pub use non_zero_bytes::*;
+pub use non_zero_byte_slice::*;
 
 pub use error::Error;
 pub type Result<T, Err = Error> = std::result::Result<T, Err>;
