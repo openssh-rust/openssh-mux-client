@@ -18,5 +18,5 @@ bytes = "1.2.1"
 serde = { version = "1.0.103", features = ["derive"] }
 ssh_format = "0.13.0"
 thiserror = "1.0.29"
-tokio = { version = "1.11.0", features = ["io-util"] }
+tokio = { version = "1.11.0", features = ["rt", "io-util"] }
 tokio-io-utility = "0.7.1"
