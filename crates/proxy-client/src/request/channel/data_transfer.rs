@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use serde::Serialize;
 
 use super::Request;
@@ -16,6 +18,24 @@ impl ChannelAdjustWindow {
             Self {
                 recipient_channel,
                 bytes_to_add,
+            },
+        )
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct DataTransfer<'a> {
+    recipient_channel: u32,
+    data_transfer: Cow<'a, [u8]>,
+}
+
+impl<'a> DataTransfer<'a> {
+    pub(crate) fn new(recipient_channel: u32, data_transfer: Cow<'a, [u8]>) -> Request<Self> {
+        Request::new(
+            SSH_MSG_CHANNEL_WINDOW_ADJUST,
+            Self {
+                recipient_channel,
+                data_transfer,
             },
         )
     }
