@@ -33,9 +33,10 @@ pub(crate) struct ChannelRequest<T> {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub(crate) struct ChannelOpen {
+pub(crate) struct ChannelOpen<T> {
     channel_type: CompactString,
     sender_channel: u32,
     init_win_size: u32,
     max_packet_size: u32,
+    data: T,
 }
