@@ -17,13 +17,6 @@ pub enum Error {
     #[error("Failed to serialize/deserialize the message: {0}.")]
     FormatError(#[from] ssh_format::Error),
 
-    /// The response id is invalid.
-    #[error("The response id {response_id} is invalid.")]
-    InvalidResponseId {
-        /// The invalid response id
-        response_id: u32,
-    },
-
     /// Invalid response from the sftp-server
     #[error("Response from sftp server is invalid: {0}")]
     InvalidResponse(
