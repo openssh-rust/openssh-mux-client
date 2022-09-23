@@ -6,7 +6,7 @@ use serde::{de::Deserializer, Deserialize};
 use super::ErrMsg;
 
 #[derive(Copy, Clone, Debug, Deserialize)]
-pub(crate) struct ExitStatus(u32);
+pub(crate) struct ExitStatus(pub u32);
 
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct ExitSignal {
