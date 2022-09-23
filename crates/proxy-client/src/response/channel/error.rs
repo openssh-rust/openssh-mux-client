@@ -7,6 +7,7 @@ use vec_strings::TwoStrs;
 use crate::constants::*;
 
 #[derive(Clone, Deserialize, Debug)]
+#[repr(transparent)]
 pub struct ErrMsg(TwoStrs);
 
 impl ErrMsg {
