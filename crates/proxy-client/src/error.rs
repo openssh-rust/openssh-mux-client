@@ -5,10 +5,6 @@ pub use crate::response::error::*;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    /// Error when waiting for response
-    #[error("Error when waiting for response: {0}.")]
-    AwaitableError(#[from] awaitable::Error),
-
     /// IO Error (Excluding `io::ErrorKind::EWOULDBLOCK`).
     #[error("IO Error: {0}.")]
     IOError(#[from] io::Error),

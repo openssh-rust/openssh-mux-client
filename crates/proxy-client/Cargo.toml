@@ -13,7 +13,6 @@ keywords = ["ssh", "openssh", "multiplex", "async", "network"]
 categories = ["asynchronous", "network-programming", "api-bindings"]
 
 [dependencies]
-awaitable = "0.3.3"
 bytes = { version = "1.2.1", features = ["serde"] }
 compact_str = { version = "0.6.1", features = ["serde"] }
 serde = { version = "1.0.103", features = ["derive"] }
