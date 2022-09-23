@@ -2,11 +2,10 @@ use compact_str::CompactString;
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize)]
-pub(crate) struct OpenConfirmation<T> {
+pub(crate) struct OpenConfirmation {
     sender_channel: u32,
     init_win_size: u32,
     max_packet_size: u32,
-    data: T,
 }
 
 #[derive(Clone, Debug, Deserialize)]
