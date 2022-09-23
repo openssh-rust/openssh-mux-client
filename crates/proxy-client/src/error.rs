@@ -1,6 +1,8 @@
 use std::io;
 use thiserror::Error;
 
+pub use crate::response::error::*;
+
 #[derive(Debug, Error)]
 pub enum Error {
     /// Error when waiting for response
