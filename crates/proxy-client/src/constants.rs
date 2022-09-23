@@ -4,6 +4,12 @@ macro_rules! def_constants {
     };
 }
 
+macro_rules! def_u32_constants {
+    ( $name:ident, $val:literal ) => {
+        pub(crate) const $name: u32 = $val;
+    };
+}
+
 def_constants!(SSH_MSG_GLOBAL_REQUEST, 80);
 def_constants!(SSH_MSG_REQUEST_SUCCESS, 81);
 def_constants!(SSH_MSG_REQUEST_FAILURE, 82);
@@ -18,3 +24,10 @@ def_constants!(SSH_MSG_CHANNEL_CLOSE, 97);
 def_constants!(SSH_MSG_CHANNEL_REQUEST, 98);
 def_constants!(SSH_MSG_CHANNEL_SUCCESS, 99);
 def_constants!(SSH_MSG_CHANNEL_FAILURE, 100);
+
+def_u32_constants!(SSH_OPEN_ADMINISTRATIVELY_PROHIBITED, 1);
+def_u32_constants!(SSH_OPEN_CONNECT_FAILED, 2);
+def_u32_constants!(SSH_OPEN_UNKNOWN_CHANNEL_TYPE, 3);
+def_u32_constants!(SSH_OPEN_RESOURCE_SHORTAGE, 4);
+
+def_u32_constants!(SSH_EXTENDED_DATA_STDERR, 1);
