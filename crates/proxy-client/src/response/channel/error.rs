@@ -64,7 +64,7 @@ impl fmt::Display for ErrorCode {
 }
 
 #[derive(Clone, Debug, Deserialize, ThisError)]
-#[error("Failed to open new channel: {error_code}, {err_msg}")]
+#[error("Failed to open new channel: code = {error_code}, msg = {err_msg}")]
 pub struct OpenFailure {
     pub error_code: ErrorCode,
     pub err_msg: ErrMsg,
