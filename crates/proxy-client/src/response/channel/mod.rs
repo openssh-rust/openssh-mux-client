@@ -1,6 +1,8 @@
 use compact_str::CompactString;
 use serde::Deserialize;
 
+use crate::IpAddr;
+
 pub(crate) mod error;
 pub use error::*;
 
@@ -38,4 +40,14 @@ pub(crate) struct ChannelOpen<T> {
     pub(crate) init_win_size: u32,
     pub(crate) max_packet_size: u32,
     pub(crate) data: T,
+}
+
+/// This is to be used with `ChannelOpen`.
+/// remote port forwarding
+pub(crate) struct ForwardedTcpIp<'a> {
+    /// The socket that is remote forwarded
+    connected_addr: IpAddr<'a>,
+    /// The socket that connects to the remote forwarded
+    /// connected_addr.
+    originator_addr: IpAddr<'a>,
 }
