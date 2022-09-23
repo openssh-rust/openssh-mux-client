@@ -17,10 +17,10 @@ pub enum Error {
     #[error("Failed to serialize/deserialize the message: {0}.")]
     FormatError(#[from] ssh_format::Error),
 
-    /// Invalid response from the sftp-server
-    #[error("Response from sftp server is invalid: {0}")]
+    /// Invalid response from the sshd
+    #[error("Response from sshd is invalid: {0}")]
     InvalidResponse(
-        // Use `&&str` since `&str` takes 16 bytes while `&str` only takes 8 bytes.
+        /// Use `&&str` since `&str` takes 16 bytes while `&str` only takes 8 bytes.
         &'static &'static str,
     ),
 }
