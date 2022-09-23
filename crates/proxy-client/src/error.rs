@@ -23,4 +23,8 @@ pub enum Error {
         /// Use `&&str` since `&str` takes 16 bytes while `&str` only takes 8 bytes.
         &'static &'static str,
     ),
+
+    /// Failed to open channel
+    #[error(transparent)]
+    ChannelOpenFailure(#[from] OpenFailure),
 }
