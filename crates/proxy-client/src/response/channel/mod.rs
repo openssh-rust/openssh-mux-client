@@ -9,6 +9,9 @@ pub use error::*;
 mod exit_status;
 pub(crate) use exit_status::*;
 
+mod data;
+pub(crate) use data::*;
+
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct OpenConfirmation {
     pub(crate) sender_channel: u32,
@@ -23,7 +26,7 @@ pub(crate) struct BytesAdjust {
 
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct ChannelExtendedData {
-    pub(crate) data_type: u32,
+    pub(crate) data_type: ExtendedDataType,
 }
 
 #[derive(Clone, Debug, Deserialize)]
