@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use bytes::Bytes;
 use ssh_format::from_bytes;
 
@@ -10,10 +12,10 @@ pub(crate) use channel::*;
 pub(crate) enum Response {
     GlobalRequestFailure,
 
-    GlobalRequestSuccess(
-        /// Request specific data
-        Bytes,
-    ),
+    GlobalRequestSuccess {
+        /// Response of global remote-forwarding request.
+        port: Option<NonZeroU32>,
+    },
 
     ChannelResponse {
         channel_response_type: ChannelResponseType,
@@ -31,7 +33,14 @@ impl Response {
         let bytes = bytes.slice(2..);
 
         match packet_type {
-            SSH_MSG_REQUEST_SUCCESS => Ok(Response::GlobalRequestSuccess(bytes)),
+            SSH_MSG_REQUEST_SUCCESS => {
+                let port = if bytes.len() == 4 {
+                    Some(from_bytes(&bytes)?.0)
+                } else {
+                    None
+                };
+                Ok(Response::GlobalRequestSuccess { port })
+            }
             SSH_MSG_REQUEST_FAILURE => Ok(Response::GlobalRequestFailure),
             SSH_MSG_CHANNEL_OPEN => Ok(Response::OpenChannelRequest(bytes)),
             packet_type => Ok(Response::ChannelResponse {
