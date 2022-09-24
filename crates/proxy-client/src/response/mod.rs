@@ -1,9 +1,16 @@
 use std::num::NonZeroU32;
 
 use bytes::Bytes;
-use ssh_format::from_bytes;
+use serde::Deserialize;
 
 use crate::{constants::*, Error};
+
+fn from_bytes<'a, T>(s: &'a [u8]) -> Result<T, Error>
+where
+    T: Deserialize<'a>,
+{
+    Ok(ssh_format::from_bytes(s)?.0)
+}
 
 mod channel;
 pub(crate) use channel::*;
@@ -18,9 +25,8 @@ pub(crate) enum Response {
     },
 
     ChannelResponse {
-        channel_response_type: ChannelResponseType,
+        channel_response: ChannelResponse,
         recipient_channel: u32,
-        data: Bytes,
     },
 
     OpenChannelRequest(Bytes),
@@ -28,14 +34,14 @@ pub(crate) enum Response {
 
 impl Response {
     pub(crate) fn from_bytes(bytes: Bytes) -> Result<Self, Error> {
-        let (_padding_len, packet_type): (u8, u8) = from_bytes(&bytes)?.0;
+        let (_padding_len, packet_type): (u8, u8) = from_bytes(&bytes)?;
 
         let bytes = bytes.slice(2..);
 
         match packet_type {
             SSH_MSG_REQUEST_SUCCESS => {
                 let port = if bytes.len() == 4 {
-                    Some(from_bytes(&bytes)?.0)
+                    Some(from_bytes(&bytes)?)
                 } else {
                     None
                 };
@@ -44,43 +50,64 @@ impl Response {
             SSH_MSG_REQUEST_FAILURE => Ok(Response::GlobalRequestFailure),
             SSH_MSG_CHANNEL_OPEN => Ok(Response::OpenChannelRequest(bytes)),
             packet_type => Ok(Response::ChannelResponse {
-                channel_response_type: ChannelResponseType::from_packet_type(packet_type)?,
-                recipient_channel: from_bytes(&bytes)?.0,
-                data: bytes.slice(4..),
+                recipient_channel: from_bytes(&bytes)?,
+                channel_response: ChannelResponse::from_packet(packet_type, bytes.slice(4..))?,
             }),
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum ChannelResponseType {
-    OpenConfirmation,
-    OpenFailure,
-    BytesAdjust,
-    ChannelData,
-    ChannelExtendedData,
+pub(crate) enum ChannelResponse {
+    OpenConfirmation(OpenConfirmation),
+    OpenFailure(OpenFailure),
+
+    BytesAdjust {
+        bytes_to_add: u32,
+    },
+    ChannelData(Bytes),
+    ChannelExtendedData {
+        data_type: ExtendedDataType,
+        data: Bytes,
+    },
     ChannelEof,
     ChannelClose,
+
     ChannelRequestSuccess,
     ChannelRequestFailure,
-    ChannelRequest,
+
+    Request {
+        body: ChannelRequest,
+        data: Bytes,
+    },
 }
 
-impl ChannelResponseType {
-    fn from_packet_type(packet_type: u8) -> Result<Self, Error> {
-        use ChannelResponseType::*;
+impl ChannelResponse {
+    fn from_packet(packet_type: u8, bytes: Bytes) -> Result<Self, Error> {
+        use ChannelResponse::*;
 
         match packet_type {
-            SSH_MSG_CHANNEL_OPEN_CONFIRMATION => Ok(OpenConfirmation),
-            SSH_MSG_CHANNEL_OPEN_FAILURE => Ok(OpenFailure),
-            SSH_MSG_CHANNEL_WINDOW_ADJUST => Ok(BytesAdjust),
-            SSH_MSG_CHANNEL_DATA => Ok(ChannelData),
-            SSH_MSG_CHANNEL_EXTENDED_DATA => Ok(ChannelExtendedData),
+            SSH_MSG_CHANNEL_OPEN_CONFIRMATION => Ok(OpenConfirmation(from_bytes(&bytes)?)),
+            SSH_MSG_CHANNEL_OPEN_FAILURE => Ok(OpenFailure(from_bytes(&bytes)?)),
+            SSH_MSG_CHANNEL_WINDOW_ADJUST => Ok(BytesAdjust {
+                bytes_to_add: from_bytes(&bytes)?,
+            }),
+            SSH_MSG_CHANNEL_DATA => Ok(ChannelData(bytes)),
+            SSH_MSG_CHANNEL_EXTENDED_DATA => {
+                let (data_type, data) = ExtendedDataType::from_bytes(bytes)?;
+                Ok(ChannelExtendedData { data_type, data })
+            }
             SSH_MSG_CHANNEL_EOF => Ok(ChannelEof),
             SSH_MSG_CHANNEL_CLOSE => Ok(ChannelClose),
+
             SSH_MSG_CHANNEL_SUCCESS => Ok(ChannelRequestSuccess),
             SSH_MSG_CHANNEL_FAILURE => Ok(ChannelRequestFailure),
-            SSH_MSG_CHANNEL_REQUEST => Ok(ChannelRequest),
+
+            SSH_MSG_CHANNEL_REQUEST => {
+                let (body, data) = ChannelRequest::from_bytes(bytes)?;
+                Ok(Request { body, data })
+            }
+
             _ => Err(Error::InvalidResponse(&"Unexpected packet type")),
         }
     }

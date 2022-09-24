@@ -1,8 +1,9 @@
 use std::fmt;
 
+use bytes::Bytes;
 use serde::{de::Deserializer, Deserialize};
 
-use crate::constants::*;
+use crate::{constants::*, response::from_bytes, Error};
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum ExtendedDataType {
@@ -24,5 +25,11 @@ impl<'de> Deserialize<'de> for ExtendedDataType {
 impl fmt::Display for ExtendedDataType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:#?}", self)
+    }
+}
+
+impl ExtendedDataType {
+    pub(in crate::response) fn from_bytes(bytes: Bytes) -> Result<(Self, Bytes), Error> {
+        Ok((from_bytes(&bytes)?, bytes.slice(4..)))
     }
 }

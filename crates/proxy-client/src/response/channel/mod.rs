@@ -1,7 +1,9 @@
+use bytes::Bytes;
 use compact_str::CompactString;
 use serde::Deserialize;
+use ssh_format::from_bytes;
 
-use crate::IpAddr;
+use crate::{Error, IpAddr};
 
 pub(crate) mod error;
 pub use error::*;
@@ -20,20 +22,16 @@ pub(crate) struct OpenConfirmation {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub(crate) struct BytesAdjust {
-    pub(crate) bytes_to_add: u32,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct ChannelExtendedData {
-    pub(crate) data_type: ExtendedDataType,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct ChannelRequest<T> {
+pub(crate) struct ChannelRequest {
     pub(crate) request_type: CompactString,
     pub(crate) want_reply: bool,
-    pub(crate) data: T,
+}
+
+impl ChannelRequest {
+    pub(super) fn from_bytes(bytes: Bytes) -> Result<(Self, Bytes), Error> {
+        let (body, rest) = from_bytes(&bytes)?;
+        Ok((body, bytes.slice((bytes.len() - rest.len())..)))
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
