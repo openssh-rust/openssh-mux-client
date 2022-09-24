@@ -65,16 +65,16 @@ pub(crate) enum ChannelResponse {
     BytesAdjust {
         bytes_to_add: u32,
     },
-    ChannelData(Bytes),
-    ChannelExtendedData {
+    Data(Bytes),
+    ExtendedData {
         data_type: ExtendedDataType,
         data: Bytes,
     },
-    ChannelEof,
-    ChannelClose,
+    Eof,
+    Close,
 
-    ChannelRequestSuccess,
-    ChannelRequestFailure,
+    RequestSuccess,
+    RequestFailure,
 
     Request {
         body: ChannelRequest,
@@ -92,16 +92,16 @@ impl ChannelResponse {
             SSH_MSG_CHANNEL_WINDOW_ADJUST => Ok(BytesAdjust {
                 bytes_to_add: from_bytes(&bytes)?,
             }),
-            SSH_MSG_CHANNEL_DATA => Ok(ChannelData(bytes)),
+            SSH_MSG_CHANNEL_DATA => Ok(Data(bytes)),
             SSH_MSG_CHANNEL_EXTENDED_DATA => {
                 let (data_type, data) = ExtendedDataType::from_bytes(bytes)?;
-                Ok(ChannelExtendedData { data_type, data })
+                Ok(ExtendedData { data_type, data })
             }
-            SSH_MSG_CHANNEL_EOF => Ok(ChannelEof),
-            SSH_MSG_CHANNEL_CLOSE => Ok(ChannelClose),
+            SSH_MSG_CHANNEL_EOF => Ok(Eof),
+            SSH_MSG_CHANNEL_CLOSE => Ok(Close),
 
-            SSH_MSG_CHANNEL_SUCCESS => Ok(ChannelRequestSuccess),
-            SSH_MSG_CHANNEL_FAILURE => Ok(ChannelRequestFailure),
+            SSH_MSG_CHANNEL_SUCCESS => Ok(RequestSuccess),
+            SSH_MSG_CHANNEL_FAILURE => Ok(RequestFailure),
 
             SSH_MSG_CHANNEL_REQUEST => {
                 let (body, data) = ChannelRequest::from_bytes(bytes)?;
