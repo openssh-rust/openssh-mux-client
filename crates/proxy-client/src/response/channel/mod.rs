@@ -47,10 +47,13 @@ pub(crate) struct ChannelOpen<T> {
 
 /// This is to be used with `ChannelOpen`.
 /// remote port forwarding
+#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct ForwardedTcpIp<'a> {
     /// The socket that is remote forwarded
+    #[serde(borrow)]
     connected_addr: IpAddr<'a>,
     /// The socket that connects to the remote forwarded
     /// connected_addr.
+    #[serde(borrow)]
     originator_addr: IpAddr<'a>,
 }
