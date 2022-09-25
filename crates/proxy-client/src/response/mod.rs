@@ -29,7 +29,10 @@ pub(crate) enum Response {
         recipient_channel: u32,
     },
 
-    OpenChannelRequest(Bytes),
+    OpenChannelRequest {
+        body: ChannelOpen,
+        data: Bytes,
+    },
 }
 
 impl Response {
@@ -48,7 +51,10 @@ impl Response {
                 Ok(Response::GlobalRequestSuccess { port })
             }
             SSH_MSG_REQUEST_FAILURE => Ok(Response::GlobalRequestFailure),
-            SSH_MSG_CHANNEL_OPEN => Ok(Response::OpenChannelRequest(bytes)),
+            SSH_MSG_CHANNEL_OPEN => {
+                let (body, data) = ChannelOpen::from_bytes(bytes)?;
+                Ok(Response::OpenChannelRequest { body, data })
+            }
             packet_type => Ok(Response::ChannelResponse {
                 recipient_channel: from_bytes(&bytes)?,
                 channel_response: ChannelResponse::from_packet(packet_type, bytes.slice(4..))?,
