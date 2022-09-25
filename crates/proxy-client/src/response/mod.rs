@@ -82,10 +82,7 @@ pub(crate) enum ChannelResponse {
     RequestSuccess,
     RequestFailure,
 
-    Request {
-        body: ChannelRequest,
-        data: Bytes,
-    },
+    Request(ChannelRequest),
 }
 
 impl ChannelResponse {
@@ -109,10 +106,7 @@ impl ChannelResponse {
             SSH_MSG_CHANNEL_SUCCESS => Ok(RequestSuccess),
             SSH_MSG_CHANNEL_FAILURE => Ok(RequestFailure),
 
-            SSH_MSG_CHANNEL_REQUEST => {
-                let (body, data) = ChannelRequest::from_bytes(bytes)?;
-                Ok(Request { body, data })
-            }
+            SSH_MSG_CHANNEL_REQUEST => ChannelRequest::from_bytes(bytes).map(Request),
 
             _ => Err(Error::InvalidResponse(&"Unexpected packet type")),
         }

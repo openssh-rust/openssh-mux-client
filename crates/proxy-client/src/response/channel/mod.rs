@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use compact_str::CompactString;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::Deserialize;
 
 use crate::{Error, IpAddr};
 
@@ -13,9 +13,12 @@ pub(crate) use exit_status::*;
 mod data;
 pub(crate) use data::*;
 
-fn from_bytes<T>(bytes: Bytes) -> Result<(T, Bytes), Error>
+mod request;
+pub(crate) use request::*;
+
+fn from_bytes_with_data<'de, T>(bytes: &'de Bytes) -> Result<(T, Bytes), Error>
 where
-    T: DeserializeOwned,
+    T: Deserialize<'de>,
 {
     let (body, rest) = ssh_format::from_bytes(&bytes)?;
     Ok((body, bytes.slice((bytes.len() - rest.len())..)))
@@ -29,18 +32,6 @@ pub(crate) struct OpenConfirmation {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-pub(crate) struct ChannelRequest {
-    pub(crate) request_type: CompactString,
-    pub(crate) want_reply: bool,
-}
-
-impl ChannelRequest {
-    pub(super) fn from_bytes(bytes: Bytes) -> Result<(Self, Bytes), Error> {
-        from_bytes(bytes)
-    }
-}
-
-#[derive(Clone, Debug, Deserialize)]
 pub(crate) struct ChannelOpen {
     pub(crate) channel_type: CompactString,
     pub(crate) sender_channel: u32,
@@ -50,7 +41,7 @@ pub(crate) struct ChannelOpen {
 
 impl ChannelOpen {
     pub(super) fn from_bytes(bytes: Bytes) -> Result<(Self, Bytes), Error> {
-        from_bytes(bytes)
+        from_bytes_with_data(&bytes)
     }
 }
 
