@@ -11,8 +11,7 @@ pub(crate) struct ExitStatus(pub u32);
 
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct ExitSignal {
-    /// signal name (without the "SIG" prefix)
-    pub signal_name: CompactString,
+    pub signal_name: SignalName,
     pub core_dumped: bool,
     pub err_msg: ErrMsg,
 }
