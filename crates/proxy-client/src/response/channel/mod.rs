@@ -20,7 +20,7 @@ fn from_bytes_with_data<'de, T>(bytes: &'de Bytes) -> Result<(T, Bytes), Error>
 where
     T: Deserialize<'de>,
 {
-    let (body, rest) = ssh_format::from_bytes(&bytes)?;
+    let (body, rest) = ssh_format::from_bytes(bytes)?;
     Ok((body, bytes.slice((bytes.len() - rest.len())..)))
 }
 

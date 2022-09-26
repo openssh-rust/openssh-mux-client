@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use crate::{constants::*, Error};
 
-fn from_bytes<'a, T>(s: &'a [u8]) -> Result<T, Error>
+fn deserialize<'a, T>(s: &'a [u8]) -> Result<T, Error>
 where
     T: Deserialize<'a>,
 {
@@ -37,14 +37,14 @@ pub(crate) enum Response {
 
 impl Response {
     pub(crate) fn from_bytes(bytes: Bytes) -> Result<Self, Error> {
-        let (_padding_len, packet_type): (u8, u8) = from_bytes(&bytes)?;
+        let (_padding_len, packet_type): (u8, u8) = deserialize(&bytes)?;
 
         let bytes = bytes.slice(2..);
 
         match packet_type {
             SSH_MSG_REQUEST_SUCCESS => {
                 let port = if bytes.len() == 4 {
-                    Some(from_bytes(&bytes)?)
+                    Some(deserialize(&bytes)?)
                 } else {
                     None
                 };
@@ -56,7 +56,7 @@ impl Response {
                 Ok(Response::OpenChannelRequest { body, data })
             }
             packet_type => Ok(Response::ChannelResponse {
-                recipient_channel: from_bytes(&bytes)?,
+                recipient_channel: deserialize(&bytes)?,
                 channel_response: ChannelResponse::from_packet(packet_type, bytes.slice(4..))?,
             }),
         }
@@ -90,10 +90,10 @@ impl ChannelResponse {
         use ChannelResponse::*;
 
         match packet_type {
-            SSH_MSG_CHANNEL_OPEN_CONFIRMATION => Ok(OpenConfirmation(from_bytes(&bytes)?)),
-            SSH_MSG_CHANNEL_OPEN_FAILURE => Ok(OpenFailure(from_bytes(&bytes)?)),
+            SSH_MSG_CHANNEL_OPEN_CONFIRMATION => Ok(OpenConfirmation(deserialize(&bytes)?)),
+            SSH_MSG_CHANNEL_OPEN_FAILURE => Ok(OpenFailure(deserialize(&bytes)?)),
             SSH_MSG_CHANNEL_WINDOW_ADJUST => Ok(BytesAdjust {
-                bytes_to_add: from_bytes(&bytes)?,
+                bytes_to_add: deserialize(&bytes)?,
             }),
             SSH_MSG_CHANNEL_DATA => Ok(Data(bytes)),
             SSH_MSG_CHANNEL_EXTENDED_DATA => {

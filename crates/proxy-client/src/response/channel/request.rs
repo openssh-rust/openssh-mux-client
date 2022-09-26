@@ -1,13 +1,13 @@
 use std::borrow::Cow;
 
 use bytes::Bytes;
-use compact_str::CompactString;
 use serde::Deserialize;
+use ssh_format::from_bytes;
 
 use crate::{
     response::{
-        channel::{from_bytes_with_data, ExitSignal, ExitStatus},
-        from_bytes,
+        channel::{ExitSignal, ExitStatus},
+        deserialize,
     },
     Error,
 };
@@ -23,26 +23,18 @@ struct ChannelRequestHeader<'a> {
 pub(crate) enum ChannelRequest {
     StatusCode(ExitStatus),
     KilledBySignal(ExitSignal),
-    Unknown {
-        request_type: CompactString,
-        want_reply: bool,
-        data: Bytes,
-    },
+    Unknown,
 }
 
 impl ChannelRequest {
     pub(in crate::response) fn from_bytes(bytes: Bytes) -> Result<Self, Error> {
         use ChannelRequest::*;
 
-        let (header, data): (ChannelRequestHeader, _) = from_bytes_with_data(&bytes)?;
+        let (header, data): (ChannelRequestHeader, _) = from_bytes(&bytes)?;
         Ok(match header.request_type.as_ref() {
-            "exit-status" => StatusCode(from_bytes(&data)?),
-            "exit-signal" => KilledBySignal(from_bytes(&data)?),
-            _ => Unknown {
-                request_type: header.request_type.into(),
-                want_reply: header.want_reply,
-                data,
-            },
+            "exit-status" => StatusCode(deserialize(&data)?),
+            "exit-signal" => KilledBySignal(deserialize(&data)?),
+            _ => Unknown,
         })
     }
 }
