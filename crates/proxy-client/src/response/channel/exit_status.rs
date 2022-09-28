@@ -11,8 +11,7 @@ pub(crate) struct ExitStatus(pub u32);
 
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct ExitSignal {
-    /// signal name (without the "SIG" prefix)
-    pub signal_name: CompactString,
+    pub signal_name: SignalName,
     pub core_dumped: bool,
     pub err_msg: ErrMsg,
 }
@@ -50,21 +49,21 @@ impl<'de> Deserialize<'de> for SignalName {
 
         let signal = <Cow<'de, str> as Deserialize>::deserialize(deserializer)?;
 
-        Ok(match signal {
-            Cow::Borrowed("ABRT") => Abrt,
-            Cow::Borrowed("ALRM") => Alrm,
-            Cow::Borrowed("FPE") => Fpe,
-            Cow::Borrowed("HUP") => Hup,
-            Cow::Borrowed("ILL") => Ill,
-            Cow::Borrowed("INT") => Int,
-            Cow::Borrowed("KILL") => Kill,
-            Cow::Borrowed("PIPE") => Pipe,
-            Cow::Borrowed("QUIT") => Quit,
-            Cow::Borrowed("SEGV") => Segv,
-            Cow::Borrowed("TERM") => Term,
-            Cow::Borrowed("USR1") => Usr1,
-            Cow::Borrowed("USR2") => Usr2,
-            signal => Extension(signal.into()),
+        Ok(match signal.as_ref() {
+            "ABRT" => Abrt,
+            "ALRM" => Alrm,
+            "FPE" => Fpe,
+            "HUP" => Hup,
+            "ILL" => Ill,
+            "INT" => Int,
+            "KILL" => Kill,
+            "PIPE" => Pipe,
+            "QUIT" => Quit,
+            "SEGV" => Segv,
+            "TERM" => Term,
+            "USR1" => Usr1,
+            "USR2" => Usr2,
+            _ => Extension(signal.into()),
         })
     }
 }
