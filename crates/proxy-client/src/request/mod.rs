@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 use bytes::{Bytes, BytesMut};
 use serde::Serialize;
-use ssh_format::Serializer;
+use ssh_format::{SerOutput, Serializer};
 
 use super::Error;
 
@@ -52,5 +52,60 @@ impl<T: Serialize> Request<T> {
 
         // Split and freeze it
         Ok(bytes.split().freeze())
+    }
+
+    /// If the slice is not large enough, the function will panic.
+    ///
+    /// Return number of bytes written.
+    pub(crate) fn serialize_to_slice(
+        &self,
+        slice: &mut [u8],
+        extra_data: usize,
+    ) -> Result<usize, Error> {
+        let extra_data: u32 = extra_data
+            .try_into()
+            .map_err(|_| ssh_format::Error::TooLong)?;
+
+        // Serialize
+        let mut buffer = SliceOutput(&mut slice[4..], 0);
+
+        let mut serializer = Serializer::new(&mut buffer);
+        self.serialize(&mut serializer)?;
+
+        // Write the header
+        let header = serializer.create_header(extra_data)?;
+
+        let cnt = buffer.1;
+
+        slice[..4].copy_from_slice(&header);
+
+        // Split and freeze it
+        Ok(4 + cnt)
+    }
+}
+
+#[derive(Debug)]
+struct SliceOutput<'a>(&'a mut [u8], usize);
+
+impl SerOutput for SliceOutput<'_> {
+    fn extend_from_slice(&mut self, other: &[u8]) {
+        let start = self.1;
+        let end = start + other.len();
+
+        self.0[start..end].copy_from_slice(other);
+
+        self.1 = end;
+    }
+
+    fn push(&mut self, byte: u8) {
+        self.0[self.1] = byte;
+
+        self.1 += 1;
+    }
+
+    fn reserve(&mut self, additional: usize) {
+        if additional > self.0.len() {
+            panic!("The slice is not large enough!")
+        }
     }
 }
