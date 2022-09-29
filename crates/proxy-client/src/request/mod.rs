@@ -38,8 +38,9 @@ impl<T: Serialize> Request<T> {
             .try_into()
             .map_err(|_| ssh_format::Error::TooLong)?;
 
-        // Reset bytes and reserve for the header
-        bytes.resize(4, 0);
+        // Reserve for the header
+        let start = bytes.len();
+        bytes.extend_from_slice(&[0_u8, 0_u8, 0_u8, 0_u8]);
 
         // Serialize
         let mut serializer = Serializer::new(&mut *bytes);
@@ -47,7 +48,7 @@ impl<T: Serialize> Request<T> {
 
         // Write the header
         let header = serializer.create_header(extra_data)?;
-        bytes[..4].copy_from_slice(&header);
+        bytes[start..(start + 4)].copy_from_slice(&header);
 
         // Split and freeze it
         Ok(bytes.split().freeze())
