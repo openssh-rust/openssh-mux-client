@@ -1,5 +1,5 @@
 use tokio::task::JoinHandle;
 
-mod spsc_bytes_channel;
+mod channel;
 
 pub struct ProxyClient {}
