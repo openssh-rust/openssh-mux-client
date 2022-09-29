@@ -1,4 +1,4 @@
-use std::sync::atomic::AtomicU8;
+use std::sync::atomic::{AtomicU8, Ordering::Relaxed};
 
 /// Help maintain receiver window size so that the data/extended_data channel
 /// would not block forever.
@@ -25,5 +25,14 @@ impl ReceiverWindowSize {
             initial_window_size,
             opened_spsc_bytes_channel_count: AtomicU8::new(opened_spsc_bytes_channel_count),
         }
+    }
+
+    /// Decrease `opened_spsc_bytes_channel_count` by one.
+    pub(super) fn decr_opened_spsc_bytes_channel_count(&self) {
+        self.opened_spsc_bytes_channel_count.fetch_sub(1, Relaxed);
+    }
+
+    pub(super) fn get_opened_spsc_bytes_channel_count(&self) -> u8 {
+        self.opened_spsc_bytes_channel_count.load(Relaxed)
     }
 }
