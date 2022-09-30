@@ -28,13 +28,31 @@ impl ReceiverWindowSize {
             opened_spsc_bytes_channel_count: AtomicU8::new(opened_spsc_bytes_channel_count),
         }
     }
+}
 
+/// For the readers
+impl ReceiverWindowSize {
     /// Decrease `opened_spsc_bytes_channel_count` by one.
     pub(super) fn decr_opened_spsc_bytes_channel_count(&self) {
         self.opened_spsc_bytes_channel_count.fetch_sub(1, Relaxed);
     }
+}
 
-    pub(super) fn get_opened_spsc_bytes_channel_count(&self) -> u8 {
-        self.opened_spsc_bytes_channel_count.load(Relaxed)
+/// For the writer
+impl ReceiverWindowSize {
+    pub(super) fn get_initial_window_size(&self) -> u32 {
+        self.initial_window_size
+    }
+
+    /// When the entire window is consumed, call this function.
+    ///
+    /// It will return `Some` if there is still opened `SpscBytesChannel`
+    /// left, otherwise returns `None`.
+    pub(super) fn on_window_consumed(&self) -> Option<Bytes> {
+        if self.opened_spsc_bytes_channel_count.load(Relaxed) == 0 {
+            None
+        } else {
+            Some(self.extend_window_size_packet.clone())
+        }
     }
 }
