@@ -1,5 +1,7 @@
 use std::{
+    future::Future,
     mem,
+    pin::Pin,
     sync::{Mutex, MutexGuard},
     task::{Context, Poll, Waker},
 };
@@ -27,42 +29,42 @@ impl SpscBytesChannel {
     ///   swapped with the internal buffers
     ///   if the internal buffer is not empty and `is_eof` is false.
     ///   On eof, it will remain empty.
-    ///
-    /// This method is a poll method instead of async method since ssh channel
-    /// alsoo needs to take care of the "windows" size, which is shared between
-    /// normal data packet (stdout or rx part of forwarding) and
-    /// the extended_data packet (stderr).
-    ///
-    /// If poll_for_data is called again before previously registered waker
-    /// get awakened, then the previously stored waker will be replaced
-    /// with the new waker.
-    pub(super) fn poll_for_data(
-        &self,
-        cx: &mut Context<'_>,
-        alt_buffer: &mut Vec<Bytes>,
-    ) -> Poll<()> {
+    pub(super) fn wait_for_data<'a>(
+        &'a self,
+        alt_buffer: &'a mut Vec<Bytes>,
+    ) -> impl Future<Output = ()> + 'a {
+        struct WaitForData<'a>(&'a SpscBytesChannel, &'a mut Vec<Bytes>);
+
+        impl Future for WaitForData<'_> {
+            type Output = ();
+
+            fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let mut guard = self.0 .0.lock().unwrap();
+
+                if !guard.buffer.is_empty() {
+                    mem::swap(&mut guard.buffer, self.1);
+                    return Poll::Ready(());
+                }
+
+                if guard.is_eof {
+                    return Poll::Ready(());
+                }
+
+                let prev_waker = mem::replace(&mut guard.waker, Some(cx.waker().clone()));
+
+                // Release the lock
+                drop(guard);
+
+                // Drop prev_waker here to reduce the critical section.
+                drop(prev_waker);
+
+                Poll::Pending
+            }
+        }
+
         alt_buffer.clear();
 
-        let mut guard = self.0.lock().unwrap();
-
-        if !guard.buffer.is_empty() {
-            mem::swap(&mut guard.buffer, alt_buffer);
-            return Poll::Ready(());
-        }
-
-        if guard.is_eof {
-            return Poll::Ready(());
-        }
-
-        let prev_waker = mem::replace(&mut guard.waker, Some(cx.waker().clone()));
-
-        // Release the lock
-        drop(guard);
-
-        // Drop prev_waker here to reduce the critical section.
-        drop(prev_waker);
-
-        Poll::Pending
+        WaitForData(self, alt_buffer)
     }
 
     /// Drop the reader.
