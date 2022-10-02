@@ -6,8 +6,10 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
+use strum::IntoStaticStr;
+
 use crate::{
-    error::OpenFailure,
+    error::{Error, OpenFailure},
     response::{ExitSignal, ExitStatus},
 };
 
@@ -27,7 +29,7 @@ struct Inner {
 /// or
 ///
 /// OpenChannelRequested => OpenChannelRequestFailed => Consumed
-#[derive(Debug)]
+#[derive(Debug, IntoStaticStr)]
 enum State {
     /// Sent open channel request
     OpenChannelRequested(OpenChannelRequestedInner),
@@ -190,7 +192,10 @@ impl ChannelState {
 /// For the channel read task.
 impl ChannelState {
     /// Must be only called once by the channel read task.
-    pub(super) fn set_channel_open_res(&self, res: OpenChennelRes) -> OpenChannelRequestedInner {
+    pub(super) fn set_channel_open_res(
+        &self,
+        res: OpenChennelRes,
+    ) -> Result<OpenChannelRequestedInner, Error> {
         let mut guard = self.0.lock().unwrap();
 
         if let State::OpenChannelRequested(inner) = guard.state {
@@ -205,14 +210,18 @@ impl ChannelState {
 
             Self::wakeup(guard);
 
-            inner
+            Ok(inner)
         } else {
-            panic!("Unexpected state")
+            Err(Error::UnexpectedChannelState {
+                expected_state: &"OpenChannelRequested",
+                actual_state: (&guard.state).into(),
+                msg: &"Received open channel request response",
+            })
         }
     }
 
     /// Must be called after `set_channel_open_res`.
-    pub(super) fn set_channel_process_status(&self, status: ProcessStatus) {
+    pub(super) fn set_channel_process_status(&self, status: ProcessStatus) -> Result<(), Error> {
         let mut guard = self.0.lock().unwrap();
 
         if let State::OpenChannelRequestConfirmed { .. } = guard.state {
@@ -222,8 +231,14 @@ impl ChannelState {
             };
 
             Self::wakeup(guard);
+
+            Ok(())
         } else {
-            panic!("Unexpected state")
+            Err(Error::UnexpectedChannelState {
+                expected_state: &"OpenChannelRequestConfirmed",
+                actual_state: (&guard.state).into(),
+                msg: &"Received process exit status",
+            })
         }
     }
 
