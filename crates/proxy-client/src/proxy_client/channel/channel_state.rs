@@ -14,7 +14,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub(super) struct ChannelState(Mutex<Inner>);
+pub(crate) struct ChannelState(Mutex<Inner>);
 
 #[derive(Debug)]
 struct Inner {
@@ -48,7 +48,7 @@ enum State {
 }
 
 #[derive(Debug)]
-pub(super) enum OpenChennelRes {
+pub(crate) enum OpenChennelRes {
     /// Ok and confirmed
     Confirmed {
         max_sender_packet_size: u32,
@@ -57,14 +57,14 @@ pub(super) enum OpenChennelRes {
 }
 
 #[derive(Debug)]
-pub(super) enum ProcessStatus {
+pub(crate) enum ProcessStatus {
     ProcessExited(ExitStatus),
     ProcessKilled(ExitSignal),
 }
 
 #[derive(Copy, Clone, Debug)]
-pub(super) struct OpenChannelRequestedInner {
-    pub(super) init_receiver_win_size: u32,
+pub(crate) struct OpenChannelRequestedInner {
+    pub(crate) init_receiver_win_size: u32,
 
     /// The packet to sent to expend window size.
     /// It should have all the data required.
@@ -80,14 +80,14 @@ pub(super) struct OpenChannelRequestedInner {
     /// Thus, what we do here is to store an array instead and copy it
     /// into a `BytesMut` and then `.split().freeze()` it on demands
     /// to reduce fragmentation.
-    pub(super) extend_window_size_packet: [u8; 14],
+    pub(crate) extend_window_size_packet: [u8; 14],
 }
 
 /// For the channel users
 impl ChannelState {
     /// * `extend_window_size_packet` - The packet to sent to expend window size.
     ///   It should have all the data required.
-    pub(super) fn new(init_receiver_win_size: u32, extend_window_size_packet: [u8; 14]) -> Self {
+    pub(crate) fn new(init_receiver_win_size: u32, extend_window_size_packet: [u8; 14]) -> Self {
         Self(Mutex::new(Inner {
             state: State::OpenChannelRequested(OpenChannelRequestedInner {
                 init_receiver_win_size,
@@ -97,7 +97,7 @@ impl ChannelState {
         }))
     }
 
-    pub(super) fn wait_for_confirmation(&self) -> impl Future<Output = OpenChennelRes> + '_ {
+    pub(crate) fn wait_for_confirmation(&self) -> impl Future<Output = OpenChennelRes> + '_ {
         struct WaitForConfirmation<'a>(&'a ChannelState);
 
         impl Future for WaitForConfirmation<'_> {
@@ -139,7 +139,7 @@ impl ChannelState {
 
     /// Must be called after `wait_for_confirmation` returns
     /// `OpenChennelRes::Confirmed`
-    pub(super) fn wait_for_process_exit(&self) -> impl Future<Output = ProcessStatus> + '_ {
+    pub(crate) fn wait_for_process_exit(&self) -> impl Future<Output = ProcessStatus> + '_ {
         struct WaitForProcessExit<'a>(&'a ChannelState);
 
         impl Future for WaitForProcessExit<'_> {
@@ -191,7 +191,7 @@ impl ChannelState {
 /// For the channel read task.
 impl ChannelState {
     /// Must be only called once by the channel read task.
-    pub(super) fn set_channel_open_res(
+    pub(crate) fn set_channel_open_res(
         &self,
         res: OpenChennelRes,
     ) -> Result<OpenChannelRequestedInner, Error> {
@@ -220,7 +220,7 @@ impl ChannelState {
     }
 
     /// Must be called after `set_channel_open_res`.
-    pub(super) fn set_channel_process_status(&self, status: ProcessStatus) -> Result<(), Error> {
+    pub(crate) fn set_channel_process_status(&self, status: ProcessStatus) -> Result<(), Error> {
         let mut guard = self.0.lock().unwrap();
 
         if let State::OpenChannelRequestConfirmed { .. } = guard.state {
