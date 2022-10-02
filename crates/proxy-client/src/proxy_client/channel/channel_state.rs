@@ -108,12 +108,7 @@ impl ChannelState {
 
                 match guard.state {
                     State::OpenChannelRequested { .. } => {
-                        let prev_waker = mem::replace(&mut guard.waker, Some(cx.waker().clone()));
-
-                        // Release lock
-                        drop(guard);
-
-                        drop(prev_waker);
+                        ChannelState::install_new_waker(guard, cx);
 
                         Poll::Pending
                     }
@@ -155,12 +150,7 @@ impl ChannelState {
 
                 match guard.state {
                     State::OpenChannelRequestConfirmed { .. } => {
-                        let prev_waker = mem::replace(&mut guard.waker, Some(cx.waker().clone()));
-
-                        // Release lock
-                        drop(guard);
-
-                        drop(prev_waker);
+                        ChannelState::install_new_waker(guard, cx);
 
                         Poll::Pending
                     }
@@ -186,6 +176,15 @@ impl ChannelState {
         }
 
         WaitForProcessExit(self)
+    }
+
+    fn install_new_waker(mut guard: MutexGuard<'_, Inner>, cx: &mut Context<'_>) {
+        let prev_waker = mem::replace(&mut guard.waker, Some(cx.waker().clone()));
+
+        // Release lock
+        drop(guard);
+
+        drop(prev_waker);
     }
 }
 
