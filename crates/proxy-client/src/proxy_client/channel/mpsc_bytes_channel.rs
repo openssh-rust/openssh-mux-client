@@ -8,9 +8,9 @@ use std::{
 
 use bytes::Bytes;
 
-/// There will be only one writer and only one reader.
+/// There can be arbitary number of writers and only one reader.
 #[derive(Default, Debug)]
-pub(super) struct SpscBytesChannel(Mutex<Inner>);
+pub(super) struct MpscBytesChannel(Mutex<Inner>);
 
 #[derive(Default, Debug)]
 struct Inner {
@@ -24,7 +24,7 @@ struct Inner {
 }
 
 /// Methods for the read end
-impl SpscBytesChannel {
+impl MpscBytesChannel {
     /// * `alt_buffer` - it should be an empty buffer and it will be
     ///   swapped with the internal buffers
     ///   if the internal buffer is not empty and `is_eof` is false.
@@ -33,7 +33,7 @@ impl SpscBytesChannel {
         &'a self,
         alt_buffer: &'a mut Vec<Bytes>,
     ) -> impl Future<Output = ()> + 'a {
-        struct WaitForData<'a>(&'a SpscBytesChannel, &'a mut Vec<Bytes>);
+        struct WaitForData<'a>(&'a MpscBytesChannel, &'a mut Vec<Bytes>);
 
         impl Future for WaitForData<'_> {
             type Output = ();
@@ -87,7 +87,7 @@ impl SpscBytesChannel {
 }
 
 /// Methods for the write end
-impl SpscBytesChannel {
+impl MpscBytesChannel {
     pub(super) fn add_more_data(&self, data: Bytes) {
         let mut guard = self.0.lock().unwrap();
 

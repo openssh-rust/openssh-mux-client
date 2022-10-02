@@ -1,3 +1,3 @@
 mod channel_state;
+mod mpsc_bytes_channel;
 mod pending_requests;
-mod spsc_bytes_channel;
