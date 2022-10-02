@@ -78,6 +78,7 @@ pub(super) enum ProcessStatus {
     ProcessKilled(ExitSignal),
 }
 
+/// For the channel users
 impl ChannelState {
     /// * `extend_window_size_packet` - The packet to sent to expend window size.
     ///   It should have all the data required.
@@ -180,5 +181,41 @@ impl ChannelState {
         }
 
         WaitForProcessExit(self)
+    }
+}
+
+/// For the channel read task.
+impl ChannelState {
+    /// Must be only called once by the channel read task.
+    pub(super) fn set_channel_open_res(&self, res: OpenChennelRes) -> (u32, [u8; 14]) {
+        let mut guard = self.0.lock().unwrap();
+
+        if let State::OpenChannelRequested {
+            init_receiver_win_size,
+            extend_window_size_packet,
+        } = guard.state
+        {
+            guard.state = match res {
+                OpenChennelRes::Confirmed {
+                    max_sender_packet_size,
+                } => State::OpenChannelRequestConfirmed {
+                    max_sender_packet_size,
+                },
+                OpenChennelRes::Failed(err) => State::OpenChannelRequestFailed(err),
+            };
+
+            let waker = guard.waker.take();
+
+            // Release lock
+            drop(guard);
+
+            if let Some(waker) = waker {
+                waker.wake();
+            }
+
+            (init_receiver_win_size, extend_window_size_packet)
+        } else {
+            panic!("Unexpected state")
+        }
     }
 }
