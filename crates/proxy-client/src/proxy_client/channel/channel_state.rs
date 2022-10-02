@@ -109,6 +109,9 @@ impl ChannelState {
                     State::OpenChannelRequestFailed(..) => {
                         let prev_state = mem::replace(&mut guard.state, State::Consumed);
 
+                        // Release lock
+                        drop(guard);
+
                         if let State::OpenChannelRequestFailed(err) = prev_state {
                             Poll::Ready(OpenChennelRes::Failed(err))
                         } else {
