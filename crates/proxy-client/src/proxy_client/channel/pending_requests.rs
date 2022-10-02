@@ -14,7 +14,7 @@ use std::{
 /// Send one or multiple requests and use
 /// [`PendingRequests`] to wait on all of them.
 #[derive(Default, Debug)]
-pub(super) struct PendingRequests {
+pub(crate) struct PendingRequests {
     /// Number of requests that has not yet received responses.
     pending_requests: AtomicUsize,
 
@@ -37,7 +37,7 @@ enum Status {
     Done,
 }
 
-pub(super) enum Completion {
+pub(crate) enum Completion {
     /// All requests succeeded
     Success,
     /// Some requests failed
@@ -49,7 +49,7 @@ impl PendingRequests {
     /// are flushed.
     ///
     /// Once start_new_requests, wait_for_completion must be called.
-    pub(super) async fn start_new_requests(&self, requests: usize) {
+    pub(crate) async fn start_new_requests(&self, requests: usize) {
         if self.pending_requests.load(Relaxed) != 0 {
             // Wait until all previous requests are processed.
             self.wait_for_completion().await;
@@ -66,7 +66,7 @@ impl PendingRequests {
 
     /// Must be called once after `start_new_requests` is called and
     /// data flushed.
-    pub(super) fn wait_for_completion(&self) -> impl Future<Output = Completion> + '_ {
+    pub(crate) fn wait_for_completion(&self) -> impl Future<Output = Completion> + '_ {
         struct WaitForCompletion<'a>(&'a PendingRequests);
 
         impl Future for WaitForCompletion<'_> {
@@ -103,7 +103,7 @@ impl PendingRequests {
     }
 
     /// Report completion of one request.
-    pub(super) fn report_request_completion(&self, completion: Completion) {
+    pub(crate) fn report_request_completion(&self, completion: Completion) {
         if let Completion::Failed = completion {
             self.request_failed.store(true, Relaxed);
         }
