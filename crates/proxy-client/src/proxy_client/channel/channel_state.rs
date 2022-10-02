@@ -62,6 +62,12 @@ pub(super) enum OpenChennelRes {
     Failed(OpenFailure),
 }
 
+#[derive(Debug)]
+pub(super) enum ProcessStatus {
+    ProcessExited(ExitStatus),
+    ProcessKilled(ExitSignal),
+}
+
 impl ChannelState {
     /// * `extend_window_size_packet` - The packet to sent to expend window size.
     ///   It should have all the data required.
@@ -115,5 +121,51 @@ impl ChannelState {
         }
 
         WaitForConfirmation(self)
+    }
+
+    /// Must be called after `wait_for_confirmation` returns
+    /// `OpenChennelRes::Confirmed`
+    pub(super) fn wait_for_process_exit(&self) -> impl Future<Output = ProcessStatus> + '_ {
+        struct WaitForProcessExit<'a>(&'a ChannelState);
+
+        impl Future for WaitForProcessExit<'_> {
+            type Output = ProcessStatus;
+
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let mut guard = self.0 .0.lock().unwrap();
+
+                match guard.state {
+                    State::OpenChannelRequestConfirmed { .. } => {
+                        let prev_waker = mem::replace(&mut guard.waker, Some(cx.waker().clone()));
+
+                        // Release lock
+                        drop(guard);
+
+                        drop(prev_waker);
+
+                        Poll::Pending
+                    }
+                    State::ProcessKilled(..) | State::ProcessExited(..) => {
+                        let prev_state = mem::replace(&mut guard.state, State::Consumed);
+
+                        // Release lock
+                        drop(guard);
+
+                        Poll::Ready(match prev_state {
+                            State::ProcessExited(exit_status) => {
+                                ProcessStatus::ProcessExited(exit_status)
+                            }
+                            State::ProcessKilled(exit_signal) => {
+                                ProcessStatus::ProcessKilled(exit_signal)
+                            }
+                            _ => unreachable!(),
+                        })
+                    }
+                    _ => panic!("Unexpected state"),
+                }
+            }
+        }
+
+        WaitForProcessExit(self)
     }
 }
