@@ -6,8 +6,6 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-use bytes::Bytes;
-
 use crate::{
     error::OpenFailure,
     response::{ExitSignal, ExitStatus},
@@ -37,7 +35,7 @@ enum State {
 
         /// The packet to sent to expend window size.
         /// It should have all the data required.
-        extend_window_size_packet: Bytes,
+        extend_window_size_packet: [u8; 14],
     },
 
     OpenChannelRequestConfirmed {
@@ -71,7 +69,7 @@ pub(super) enum ProcessStatus {
 impl ChannelState {
     /// * `extend_window_size_packet` - The packet to sent to expend window size.
     ///   It should have all the data required.
-    pub(super) fn new(init_receiver_win_size: u32, extend_window_size_packet: Bytes) -> Self {
+    pub(super) fn new(init_receiver_win_size: u32, extend_window_size_packet: [u8; 14]) -> Self {
         Self(Mutex::new(Inner {
             state: State::OpenChannelRequested {
                 init_receiver_win_size,
