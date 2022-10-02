@@ -2,7 +2,7 @@ use std::{
     future::Future,
     mem,
     pin::Pin,
-    sync::{Mutex, MutexGuard},
+    sync::Mutex,
     task::{Context, Poll, Waker},
 };
 
