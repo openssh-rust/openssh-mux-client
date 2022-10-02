@@ -2,7 +2,7 @@ use std::{
     future::Future,
     mem,
     pin::Pin,
-    sync::Mutex,
+    sync::{Mutex, MutexGuard},
     task::{Context, Poll, Waker},
 };
 
@@ -203,18 +203,38 @@ impl ChannelState {
                 OpenChennelRes::Failed(err) => State::OpenChannelRequestFailed(err),
             };
 
-            let waker = guard.waker.take();
-
-            // Release lock
-            drop(guard);
-
-            if let Some(waker) = waker {
-                waker.wake();
-            }
+            Self::wakeup(guard);
 
             inner
         } else {
             panic!("Unexpected state")
+        }
+    }
+
+    /// Must be called after `set_channel_open_res`.
+    pub(super) fn set_channel_process_status(&self, status: ProcessStatus) {
+        let mut guard = self.0.lock().unwrap();
+
+        if let State::OpenChannelRequestConfirmed { .. } = guard.state {
+            guard.state = match status {
+                ProcessStatus::ProcessExited(exit_status) => State::ProcessExited(exit_status),
+                ProcessStatus::ProcessKilled(exit_signal) => State::ProcessKilled(exit_signal),
+            };
+
+            Self::wakeup(guard);
+        } else {
+            panic!("Unexpected state")
+        }
+    }
+
+    fn wakeup(mut guard: MutexGuard<'_, Inner>) {
+        let waker = guard.waker.take();
+
+        // Release lock
+        drop(guard);
+
+        if let Some(waker) = waker {
+            waker.wake();
         }
     }
 }
