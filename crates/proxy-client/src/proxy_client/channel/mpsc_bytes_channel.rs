@@ -10,7 +10,7 @@ use bytes::Bytes;
 
 /// There can be arbitary number of writers and only one reader.
 #[derive(Default, Debug)]
-pub(super) struct MpscBytesChannel(Mutex<Inner>);
+pub(crate) struct MpscBytesChannel(Mutex<Inner>);
 
 #[derive(Default, Debug)]
 struct Inner {
@@ -29,7 +29,7 @@ impl MpscBytesChannel {
     ///   swapped with the internal buffers
     ///   if the internal buffer is not empty and `is_eof` is false.
     ///   On eof, it will remain empty.
-    pub(super) fn wait_for_data<'a>(
+    pub(crate) fn wait_for_data<'a>(
         &'a self,
         alt_buffer: &'a mut Vec<Bytes>,
     ) -> impl Future<Output = ()> + 'a {
@@ -69,7 +69,7 @@ impl MpscBytesChannel {
 
     /// Drop the reader.
     /// After this point, you cannot call poll_for_data.
-    pub(super) fn drop_reader(&self) {
+    pub(crate) fn drop_reader(&self) {
         let mut guard = self.0.lock().unwrap();
 
         let prev_waker = mem::take(&mut guard.waker);
@@ -88,7 +88,7 @@ impl MpscBytesChannel {
 
 /// Methods for the write end
 impl MpscBytesChannel {
-    pub(super) fn add_more_data(&self, data: Bytes) {
+    pub(crate) fn add_more_data(&self, data: Bytes) {
         let mut guard = self.0.lock().unwrap();
 
         if guard.reader_dropped {
@@ -100,7 +100,7 @@ impl MpscBytesChannel {
     }
 
     /// You must not call add_more_data after this call.
-    pub(super) fn mark_eof(&self) {
+    pub(crate) fn mark_eof(&self) {
         let mut guard = self.0.lock().unwrap();
 
         if guard.reader_dropped {
