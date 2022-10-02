@@ -35,6 +35,18 @@ enum State {
 
         /// The packet to sent to expend window size.
         /// It should have all the data required.
+        ///
+        /// We use an array here instead of `Bytes` here since the data
+        /// will be stored for the entire channel.
+        ///
+        /// As such, the underlying heap allocation used by `Bytes` cannot be
+        /// freed or reuse until the channel is closed.
+        ///
+        /// That is going to waste a lot of memory and have fragmentation.
+        ///
+        /// Thus, what we do here is to store an array instead and copy it
+        /// into a `BytesMut` and then `.split().freeze()` it on demands
+        /// to reduce fragmentation.
         extend_window_size_packet: [u8; 14],
     },
 
