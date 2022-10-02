@@ -30,25 +30,7 @@ struct Inner {
 #[derive(Debug)]
 enum State {
     /// Sent open channel request
-    OpenChannelRequested {
-        init_receiver_win_size: u32,
-
-        /// The packet to sent to expend window size.
-        /// It should have all the data required.
-        ///
-        /// We use an array here instead of `Bytes` here since the data
-        /// will be stored for the entire channel.
-        ///
-        /// As such, the underlying heap allocation used by `Bytes` cannot be
-        /// freed or reuse until the channel is closed.
-        ///
-        /// That is going to waste a lot of memory and have fragmentation.
-        ///
-        /// Thus, what we do here is to store an array instead and copy it
-        /// into a `BytesMut` and then `.split().freeze()` it on demands
-        /// to reduce fragmentation.
-        extend_window_size_packet: [u8; 14],
-    },
+    OpenChannelRequested(OpenChannelRequestedInner),
 
     OpenChannelRequestConfirmed {
         max_sender_packet_size: u32,
@@ -78,16 +60,37 @@ pub(super) enum ProcessStatus {
     ProcessKilled(ExitSignal),
 }
 
+#[derive(Copy, Clone, Debug)]
+pub(super) struct OpenChannelRequestedInner {
+    pub(super) init_receiver_win_size: u32,
+
+    /// The packet to sent to expend window size.
+    /// It should have all the data required.
+    ///
+    /// We use an array here instead of `Bytes` here since the data
+    /// will be stored for the entire channel.
+    ///
+    /// As such, the underlying heap allocation used by `Bytes` cannot be
+    /// freed or reuse until the channel is closed.
+    ///
+    /// That is going to waste a lot of memory and have fragmentation.
+    ///
+    /// Thus, what we do here is to store an array instead and copy it
+    /// into a `BytesMut` and then `.split().freeze()` it on demands
+    /// to reduce fragmentation.
+    pub(super) extend_window_size_packet: [u8; 14],
+}
+
 /// For the channel users
 impl ChannelState {
     /// * `extend_window_size_packet` - The packet to sent to expend window size.
     ///   It should have all the data required.
     pub(super) fn new(init_receiver_win_size: u32, extend_window_size_packet: [u8; 14]) -> Self {
         Self(Mutex::new(Inner {
-            state: State::OpenChannelRequested {
+            state: State::OpenChannelRequested(OpenChannelRequestedInner {
                 init_receiver_win_size,
                 extend_window_size_packet,
-            },
+            }),
             waker: None,
         }))
     }
@@ -187,14 +190,10 @@ impl ChannelState {
 /// For the channel read task.
 impl ChannelState {
     /// Must be only called once by the channel read task.
-    pub(super) fn set_channel_open_res(&self, res: OpenChennelRes) -> (u32, [u8; 14]) {
+    pub(super) fn set_channel_open_res(&self, res: OpenChennelRes) -> OpenChannelRequestedInner {
         let mut guard = self.0.lock().unwrap();
 
-        if let State::OpenChannelRequested {
-            init_receiver_win_size,
-            extend_window_size_packet,
-        } = guard.state
-        {
+        if let State::OpenChannelRequested(inner) = guard.state {
             guard.state = match res {
                 OpenChennelRes::Confirmed {
                     max_sender_packet_size,
@@ -213,7 +212,7 @@ impl ChannelState {
                 waker.wake();
             }
 
-            (init_receiver_win_size, extend_window_size_packet)
+            inner
         } else {
             panic!("Unexpected state")
         }
