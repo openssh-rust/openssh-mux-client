@@ -11,14 +11,17 @@ pub(super) use mpsc_bytes_channel::MpscBytesChannel;
 mod pending_requests;
 pub(super) use pending_requests::{Completion, PendingRequests};
 
+mod awaitable_atomic_u64;
+pub(super) use awaitable_atomic_u64::AwaitableAtomicU64;
+
 #[derive(Debug)]
 pub(super) struct Channel {
     pub(super) state: ChannelState,
 
     pub(super) pending_requests: PendingRequests,
 
-    /// TODO: Make an awaitable type for this
-    pub(super) sender_window_size: AtomicU64,
+    /// Use u64 to avoid overflow.
+    pub(super) sender_window_size: AwaitableAtomicU64,
 
     /// Number of receivers alive
     pub(super) receivers_count: AtomicU8,
