@@ -15,13 +15,13 @@ mod awaitable_atomic_u64;
 pub(super) use awaitable_atomic_u64::AwaitableAtomicU64;
 
 #[derive(Debug)]
+// Use C repr so that we can decide order of fields here
+// and avoid false sharing if possible.
+#[repr(C)]
 pub(super) struct Channel {
     pub(super) state: ChannelState,
 
     pub(super) pending_requests: PendingRequests,
-
-    /// Use u64 to avoid overflow.
-    pub(super) sender_window_size: AwaitableAtomicU64,
 
     /// Number of receivers alive.
     /// Max value is 2, since there can only be rx (stdout)
@@ -29,8 +29,17 @@ pub(super) struct Channel {
     pub(super) receivers_count: AtomicU8,
 
     /// Usually stdin for process or rx for forwarding.
+    ///
+    /// Put it in `Option<Box<...>>` since it is optional
+    /// and also avoid false sharing.
     pub(super) rx: Option<Box<MpscBytesChannel>>,
 
     /// Usually stderr for process
+    ///
+    /// Put it in `Option<Box<...>>` since it is optional
+    /// and also avoid false sharing.
     pub(super) stderr: Option<Box<MpscBytesChannel>>,
+
+    /// Use u64 to avoid overflow.
+    pub(super) sender_window_size: AwaitableAtomicU64,
 }
