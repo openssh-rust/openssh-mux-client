@@ -23,7 +23,9 @@ pub(super) struct Channel {
     /// Use u64 to avoid overflow.
     pub(super) sender_window_size: AwaitableAtomicU64,
 
-    /// Number of receivers alive
+    /// Number of receivers alive.
+    /// Max value is 2, since there can only be rx (stdout)
+    /// and stderr.
     pub(super) receivers_count: AtomicU8,
 
     /// Usually stdin for process or rx for forwarding.
