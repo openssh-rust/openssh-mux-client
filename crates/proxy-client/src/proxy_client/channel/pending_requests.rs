@@ -1,11 +1,9 @@
 use std::{
     future::Future,
     mem,
+    num::NonZeroUsize,
     pin::Pin,
-    sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering::Relaxed},
-        Mutex,
-    },
+    sync::{Mutex, MutexGuard},
     task::{Context, Poll, Waker},
 };
 
@@ -13,30 +11,25 @@ use std::{
 ///
 /// Send one or multiple requests and use
 /// [`PendingRequests`] to wait on all of them.
-#[derive(Default, Debug)]
-pub(crate) struct PendingRequests {
-    /// Number of requests that has not yet received responses.
-    pending_requests: AtomicUsize,
+#[derive(Debug, Default)]
+pub(crate) struct PendingRequests(Mutex<Inner>);
 
-    /// If any request has failed.
-    ///
-    /// Since ssh connection protocol does not return error
-    /// for requests, a simple flag is enough.
-    request_failed: AtomicBool,
-
-    status: Mutex<Status>,
-}
-
-#[derive(Default, Debug)]
-enum Status {
+#[derive(Debug, Default)]
+enum Inner {
     #[default]
-    None,
+    NotStarted,
 
-    Waiting(Waker),
+    Waiting {
+        /// usize is enough since all requests have to be buffered in memory
+        /// before sending.
+        pending_requests: NonZeroUsize,
+        waker: Option<Waker>,
+    },
 
-    Done,
+    Done(Completion),
 }
 
+#[derive(Copy, Clone, Debug)]
 pub(crate) enum Completion {
     /// All requests succeeded
     Success,
@@ -49,23 +42,48 @@ impl PendingRequests {
     /// are flushed.
     ///
     /// Once start_new_requests, wait_for_completion must be called.
-    pub(crate) async fn start_new_requests(&self, requests: usize) {
-        if self.pending_requests.load(Relaxed) != 0 {
-            // Wait until all previous requests are processed.
-            self.wait_for_completion().await;
+    pub(crate) async fn start_new_requests<F>(&self, requests: NonZeroUsize) {
+        struct WaitForPrevCompletion<'a>(&'a PendingRequests);
+
+        impl<'a> Future for WaitForPrevCompletion<'a> {
+            type Output = MutexGuard<'a, Inner>;
+
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let mut guard = self.0 .0.lock().unwrap();
+
+                match &mut *guard {
+                    Inner::Done(..) | Inner::NotStarted => Poll::Ready(guard),
+                    Inner::Waiting { waker, .. } => {
+                        let prev_waker = mem::replace(waker, Some(cx.waker().clone()));
+
+                        // Release mutex
+                        drop(guard);
+
+                        drop(prev_waker);
+
+                        Poll::Pending
+                    }
+                }
+            }
         }
 
-        self.pending_requests.store(requests, Relaxed);
-        self.request_failed.store(false, Relaxed);
+        let mut guard = WaitForPrevCompletion(self).await;
 
-        let prev_status = mem::replace(&mut *self.status.lock().unwrap(), Status::None);
+        debug_assert!(matches!(&*guard, Inner::NotStarted | Inner::Done { .. }));
 
-        // Drop prev_status after releasing the lock to reduce critical section.
-        drop(prev_status);
+        // This overwrites should be simply memcpy.
+        // Dropping the old value should be zero-cost.
+        *guard = Inner::Waiting {
+            pending_requests: requests,
+            waker: None,
+        };
     }
 
     /// Must be called once after `start_new_requests` is called and
     /// data flushed.
+    ///
+    /// This function must be called after
+    /// [`PendingRequests::start_new_requests`] is called.
     pub(crate) fn wait_for_completion(&self) -> impl Future<Output = Completion> + '_ {
         struct WaitForCompletion<'a>(&'a PendingRequests);
 
@@ -73,54 +91,53 @@ impl PendingRequests {
             type Output = Completion;
 
             fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-                let mut guard = self.0.status.lock().unwrap();
+                let mut guard = self.0 .0.lock().unwrap();
 
-                if let Status::Done = *guard {
-                    drop(guard);
+                match &mut *guard {
+                    Inner::Done(completion) => Poll::Ready(*completion),
+                    Inner::Waiting { waker, .. } => {
+                        let prev_waker = mem::replace(waker, Some(cx.waker().clone()));
 
-                    debug_assert_eq!(self.0.pending_requests.load(Relaxed), 0);
+                        // Release mutex
+                        drop(guard);
 
-                    return if self.0.request_failed.load(Relaxed) {
-                        Poll::Ready(Completion::Failed)
-                    } else {
-                        Poll::Ready(Completion::Success)
-                    };
+                        drop(prev_waker);
+
+                        Poll::Pending
+                    }
+                    Inner::NotStarted => {
+                        panic!("wait_for_completion must be called after start_new_requests!")
+                    }
                 }
-
-                let prev_status = mem::replace(&mut *guard, Status::Waiting(cx.waker().clone()));
-
-                // Release the lock
-                drop(guard);
-
-                // Drop prev_status after releasing the lock to reduce critical section.
-                drop(prev_status);
-
-                Poll::Pending
             }
         }
 
         WaitForCompletion(self)
     }
 
-    /// Report completion of one request.
-    pub(crate) fn report_request_completion(&self, completion: Completion) {
-        if let Completion::Failed = completion {
-            self.request_failed.store(true, Relaxed);
+    /// Retrieve number of pending requests.
+    pub(crate) fn retrieve_pending_requests(&self) -> Option<NonZeroUsize> {
+        if let Inner::Waiting {
+            pending_requests, ..
+        } = &*self.0.lock().unwrap()
+        {
+            Some(*pending_requests)
+        } else {
+            None
         }
+    }
 
-        match self.pending_requests.fetch_sub(1, Relaxed) {
-            // Previous value is 1, now it is 0, so perform wakeup
-            1 => {
-                let prev_status = mem::replace(&mut *self.status.lock().unwrap(), Status::Done);
+    /// Report completion of all requests.
+    pub(crate) fn report_request_completion(&self, completion: Completion) {
+        let prev_state = mem::replace(&mut *self.0.lock().unwrap(), Inner::Done(completion));
 
-                debug_assert!(matches!(&prev_status, Status::None | Status::Waiting(..)));
-
-                if let Status::Waiting(waker) = prev_status {
-                    waker.wake();
+        match prev_state {
+            Inner::Waiting { waker, .. } => {
+                if let Some(waker) = waker {
+                    waker.wake()
                 }
             }
-            0 => panic!("Bug: pending_requests OVERFLOWED!"),
-            _ => (),
+            _ => panic!("Invalid state, expected `Waiting`!"),
         }
     }
 }
