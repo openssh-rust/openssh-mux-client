@@ -44,7 +44,6 @@ impl DataTransfer {
     /// * `buffer` - This would not modify any existing data in it,
     ///   but it would create the header on it and split it out as a `Bytes`.
     pub(crate) fn create_header(
-        &self,
         recipient_channel: u32,
         data_len: u32,
         buffer: &mut BytesMut,
