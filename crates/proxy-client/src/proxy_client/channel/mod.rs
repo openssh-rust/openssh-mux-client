@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicU64, AtomicU8};
+use std::sync::atomic::AtomicU8;
 
 mod channel_state;
 pub(super) use channel_state::{
