@@ -79,6 +79,27 @@ impl ChannelInput {
             })
             .count();
 
+        // If max != 0 and pending_bytes.len() > pending_end,
+        // then calculate the last bytes to add.
+        let mut maybe_last_bytes = None;
+
+        if let Some(bytes) = pending_bytes.get_mut(pending_end) {
+            let n = bytes.len().min(max);
+
+            if n != 0 {
+                // bytes.split_to(n) returns Bytes containing bytes[0, n),
+                // and afterwards bytes contains [n, len)
+                maybe_last_bytes = Some(bytes.split_to(n));
+            }
+
+            bytes_written += n;
+        }
+
+        // The closure holds a mutex, put drain outside
+        // so that the dropping of it is not included in the
+        // critical section.
+        let mut drain = pending_bytes.drain(0..pending_end);
+
         self.channel_ref
             .shared_data
             .get_write_channel()
@@ -86,19 +107,9 @@ impl ChannelInput {
                 buffer.push(header);
 
                 // Move the bytes into buffer;
-                buffer.extend(pending_bytes.drain(0..pending_end));
+                buffer.extend(&mut drain);
 
-                if let Some(bytes) = pending_bytes.first_mut() {
-                    let n = bytes.len().min(max);
-
-                    if n != 0 {
-                        // bytes.split_to(n) returns Bytes containing bytes[0, n),
-                        // and afterwards bytes contains [n, len)
-                        buffer.push(bytes.split_to(n));
-                    }
-
-                    bytes_written += n;
-                }
+                buffer.extend(maybe_last_bytes);
             });
 
         let bytes_written: u64 = bytes_written.try_into().unwrap();
