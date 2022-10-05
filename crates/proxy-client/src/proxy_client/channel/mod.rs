@@ -1,4 +1,4 @@
-use std::sync::atomic::AtomicU8;
+use std::sync::{atomic::AtomicU8, Arc};
 
 mod channel_state;
 pub(super) use channel_state::{
@@ -30,15 +30,21 @@ pub(super) struct Channel {
 
     /// Usually stdin for process or rx for forwarding.
     ///
-    /// Put it in `Option<Box<...>>` since it is optional
+    /// Put it in `Option<Arc<...>>` since it is optional
     /// and also avoid false sharing.
-    pub(super) rx: Option<Box<MpscBytesChannel>>,
+    ///
+    /// Using Arc instead of Box here so that the reader
+    /// can receive bytes out of it without `unwrap`.
+    pub(super) rx: Option<Arc<MpscBytesChannel>>,
 
     /// Usually stderr for process
     ///
-    /// Put it in `Option<Box<...>>` since it is optional
+    /// Put it in `Option<Arc<...>>` since it is optional
     /// and also avoid false sharing.
-    pub(super) stderr: Option<Box<MpscBytesChannel>>,
+    ///
+    /// Using Arc instead of Box here so that the reader
+    /// can receive bytes out of it without `unwrap`.
+    pub(super) stderr: Option<Arc<MpscBytesChannel>>,
 
     /// Use u64 to avoid overflow.
     pub(super) sender_window_size: AwaitableAtomicU64,
