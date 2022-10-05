@@ -59,7 +59,9 @@ impl<T: Serialize> Request<T> {
 
         let res = self.serialize_with_header_inner(bytes, extra_data);
 
-        bytes.truncate(start);
+        if res.is_err() {
+            bytes.truncate(start);
+        }
 
         res
     }
