@@ -2,7 +2,6 @@ use std::{
     future::Future,
     mem,
     num::NonZeroU64,
-    pin::Pin,
     sync::{
         atomic::{AtomicU64, Ordering::Relaxed},
         Mutex,
