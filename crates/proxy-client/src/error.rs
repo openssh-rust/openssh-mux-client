@@ -32,3 +32,12 @@ pub enum Error {
         msg: &'static &'static str,
     },
 }
+
+impl Error {
+    pub fn into_io_error(self) -> io::Error {
+        match self {
+            Error::IOError(io_error) => io_error,
+            other => io::Error::new(io::ErrorKind::Other, other),
+        }
+    }
+}
