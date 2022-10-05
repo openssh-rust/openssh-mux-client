@@ -10,6 +10,8 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
+use futures_util::future::poll_fn;
+
 /// AwaitableAtomicU64.
 /// Can have multiple writer that adds to the counter but only one reader
 /// that decrements the counter.
@@ -74,17 +76,7 @@ impl AwaitableAtomicU64 {
     ///
     /// It will set the atomic to 0 atomically before returning.
     pub(crate) fn wait_until_non_zero(&self) -> impl Future<Output = NonZeroU64> + '_ {
-        struct WaitUntilNonZero<'a>(&'a AwaitableAtomicU64);
-
-        impl Future for WaitUntilNonZero<'_> {
-            type Output = NonZeroU64;
-
-            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-                self.0.poll_until_non_zero(cx)
-            }
-        }
-
-        WaitUntilNonZero(self)
+        poll_fn(move |cx| self.poll_until_non_zero(cx))
     }
 }
 
