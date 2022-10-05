@@ -26,12 +26,14 @@ pub struct ChannelInput {
 
     /// Bytes that haven't been sent yet.
     pending_bytes: Vec<Bytes>,
+    pending_len: usize,
 
     buffer: BytesMut,
 }
 
 impl ChannelInput {
     fn add_pending_byte(&mut self, bytes: Bytes) {
+        self.pending_len += bytes.len();
         self.pending_bytes.push(bytes);
     }
 
@@ -122,6 +124,8 @@ impl ChannelInput {
                 buffer.extend(maybe_last_bytes);
             });
 
+        self.pending_len -= bytes_written;
+
         let bytes_written: u64 = bytes_written.try_into().unwrap();
         self.curr_sender_win -= bytes_written;
 
@@ -147,15 +151,17 @@ impl Sink<Bytes> for ChannelInput {
 
     fn start_send(mut self: Pin<&mut Self>, bytes: Bytes) -> Result<(), Self::Error> {
         if !bytes.is_empty() {
-            let len = bytes.len();
-
             self.add_pending_byte(bytes);
 
-            let curr_sender_win: usize = self.curr_sender_win.try_into().unwrap_or(usize::MAX);
+            if self.curr_sender_win == 0 {
+                self.curr_sender_win = self.channel_ref.channel_data.sender_window_size.get();
+            }
 
-            if curr_sender_win > 0
-                && (self.pending_bytes.len() >= 10 || len >= curr_sender_win / 10)
-            {
+            let curr_sender_win: usize = self.curr_sender_win.try_into().unwrap_or(usize::MAX);
+            let max_packet_size: usize =
+                self.max_packet_size.get().try_into().unwrap_or(usize::MAX);
+
+            if curr_sender_win > 0 && self.pending_len == curr_sender_win.min(max_packet_size) {
                 Pin::into_inner(self.as_mut()).try_flush()?;
             }
         }
