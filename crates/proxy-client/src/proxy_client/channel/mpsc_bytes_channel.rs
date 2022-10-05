@@ -88,14 +88,22 @@ impl MpscBytesChannel {
 
 /// Methods for the write end
 impl MpscBytesChannel {
-    pub(crate) fn add_more_data(&self, data: Bytes) {
+    pub(crate) fn push_bytes(&self, data: Bytes) {
+        self.add_more_data(|buffer| buffer.push(data))
+    }
+
+    pub(crate) fn add_more_data<F>(&self, callback: F)
+    where
+        F: FnOnce(&mut Vec<Bytes>),
+    {
         let mut guard = self.0.lock().unwrap();
 
         if guard.reader_dropped {
             return;
         }
 
-        guard.buffer.push(data);
+        callback(&mut guard.buffer);
+
         Self::wake_up_reader(guard);
     }
 
