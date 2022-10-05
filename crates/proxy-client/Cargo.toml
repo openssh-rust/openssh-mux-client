@@ -15,6 +15,7 @@ categories = ["asynchronous", "network-programming", "api-bindings"]
 [dependencies]
 bytes = { version = "1.2.1", features = ["serde"] }
 compact_str = { version = "0.6.1", features = ["serde"] }
+concurrent_arena = "0.1.7"
 serde = { version = "1.0.103", features = ["derive"] }
 ssh_format = { version = "0.13.2", features = ["bytes"] }
 strum = { version = "0.24", features = ["derive"] }
