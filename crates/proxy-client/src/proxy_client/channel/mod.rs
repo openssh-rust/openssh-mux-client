@@ -16,6 +16,9 @@ pub(super) use pending_requests::{Completion, PendingRequests};
 mod awaitable_atomic_u64;
 pub(super) use awaitable_atomic_u64::AwaitableAtomicU64;
 
+mod channel_input;
+pub use channel_input::ChannelInput;
+
 #[derive(Debug)]
 // Use C repr so that we can decide order of fields here
 // and avoid false sharing if possible.
@@ -30,7 +33,7 @@ pub(super) struct ChannelData {
     /// and stderr.
     pub(super) receivers_count: AtomicU8,
 
-    /// Usually stdin for process or rx for forwarding.
+    /// Usually stdout for process or rx for forwarding.
     ///
     /// Put it in `Option<Arc<...>>` since it is optional
     /// and also avoid false sharing.
@@ -58,6 +61,12 @@ pub(super) struct ChannelData {
 struct ChannelRef {
     shared_data: SharedData,
     channel_data: ChannelDataArenaArc,
+}
+
+impl ChannelRef {
+    fn channel_id(&self) -> u32 {
+        ChannelDataArenaArc::slot(&self.channel_data)
+    }
 }
 
 impl Drop for ChannelRef {
