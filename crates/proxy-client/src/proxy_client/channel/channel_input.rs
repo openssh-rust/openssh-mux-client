@@ -112,6 +112,8 @@ impl ChannelInput {
             .shared_data
             .get_write_channel()
             .add_more_data(|buffer| {
+                buffer.reserve(1 + drain.len() + maybe_last_bytes.iter().len());
+
                 buffer.push(header);
 
                 // Move the bytes into buffer;
