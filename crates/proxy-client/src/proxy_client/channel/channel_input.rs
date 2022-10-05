@@ -1,5 +1,6 @@
 use std::{
     convert::TryInto,
+    io,
     num::{NonZeroU32, NonZeroU64},
     pin::Pin,
     task::{Context, Poll},
@@ -7,6 +8,7 @@ use std::{
 
 use bytes::{Bytes, BytesMut};
 use futures_util::{ready, sink::Sink};
+use tokio::io::AsyncWrite;
 
 use super::ChannelRef;
 use crate::{request::DataTransfer, Error};
@@ -166,7 +168,67 @@ impl Sink<Bytes> for ChannelInput {
     }
 
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.poll_flush(cx)
+        Sink::poll_flush(self, cx)
+    }
+}
+
+impl AsyncWrite for ChannelInput {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        if buf.is_empty() {
+            return Poll::Ready(Ok(0));
+        }
+
+        let buffer = &mut self.buffer;
+
+        debug_assert!(buffer.is_empty());
+
+        buffer.extend_from_slice(buf);
+        let bytes = buffer.split().freeze();
+        let len = bytes.len();
+
+        self.start_send(bytes).map_err(Error::into_io_error)?;
+
+        Poll::Ready(Ok(len))
+    }
+
+    fn poll_write_vectored(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        bufs: &[io::IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
+        if bufs.is_empty() {
+            return Poll::Ready(Ok(0));
+        }
+
+        let buffer = &mut self.buffer;
+
+        debug_assert!(buffer.is_empty());
+
+        for buf in bufs {
+            buffer.extend_from_slice(buf);
+        }
+
+        let bytes = buffer.split().freeze();
+        let len = bytes.len();
+
+        self.start_send(bytes).map_err(Error::into_io_error)?;
+
+        Poll::Ready(Ok(len))
+    }
+    fn is_write_vectored(&self) -> bool {
+        true
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Sink::poll_flush(self, cx).map_err(Error::into_io_error)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Sink::poll_close(self, cx).map_err(Error::into_io_error)
     }
 }
 
