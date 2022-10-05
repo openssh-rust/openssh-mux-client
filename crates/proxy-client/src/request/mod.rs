@@ -32,12 +32,8 @@ impl<T: Serialize> Request<T> {
     pub(crate) fn serialize_with_header(
         &self,
         bytes: &mut BytesMut,
-        extra_data: usize,
+        extra_data: u32,
     ) -> Result<(), Error> {
-        let extra_data: u32 = extra_data
-            .try_into()
-            .map_err(|_| ssh_format::Error::TooLong)?;
-
         // Reserve for the header
         let start = bytes.len();
         bytes.extend_from_slice(&[0_u8, 0_u8, 0_u8, 0_u8]);
@@ -59,7 +55,7 @@ impl<T: Serialize> Request<T> {
     pub(crate) fn serialize_to_slice(
         &self,
         slice: &mut [u8],
-        extra_data: usize,
+        extra_data: u32,
     ) -> Result<usize, Error> {
         let extra_data: u32 = extra_data
             .try_into()
