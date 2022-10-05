@@ -137,7 +137,13 @@ impl Sink<Bytes> for ChannelInput {
 
     fn start_send(mut self: Pin<&mut Self>, bytes: Bytes) -> Result<(), Self::Error> {
         if !bytes.is_empty() {
+            let len = bytes.len();
+
             self.add_pending_byte(bytes);
+
+            if self.curr_sender_win > 0 && (self.pending_bytes.len() >= 10 || len >= 1000) {
+                Pin::into_inner(self.as_mut()).try_flush()?;
+            }
         }
 
         Ok(())
