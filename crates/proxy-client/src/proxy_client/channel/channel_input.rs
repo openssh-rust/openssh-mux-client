@@ -141,7 +141,11 @@ impl Sink<Bytes> for ChannelInput {
 
             self.add_pending_byte(bytes);
 
-            if self.curr_sender_win > 0 && (self.pending_bytes.len() >= 10 || len >= 1000) {
+            let curr_sender_win: usize = self.curr_sender_win.try_into().unwrap_or(usize::MAX);
+
+            if curr_sender_win > 0
+                && (self.pending_bytes.len() >= 10 || len >= curr_sender_win / 10)
+            {
                 Pin::into_inner(self.as_mut()).try_flush()?;
             }
         }
@@ -168,7 +172,8 @@ impl Sink<Bytes> for ChannelInput {
 
 impl Drop for ChannelInput {
     fn drop(&mut self) {
-        // Send Eof
+        // Send all pending data, then send
+        // Eof
         todo!()
     }
 }
