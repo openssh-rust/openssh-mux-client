@@ -18,7 +18,7 @@ pub(super) use awaitable_atomic_u64::AwaitableAtomicU64;
 // Use C repr so that we can decide order of fields here
 // and avoid false sharing if possible.
 #[repr(C)]
-pub(super) struct Channel {
+pub(super) struct ChannelData {
     pub(super) state: ChannelState,
 
     pub(super) pending_requests: PendingRequests,
