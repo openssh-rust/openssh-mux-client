@@ -29,7 +29,7 @@ impl<T: Serialize> Request<T> {
         }
     }
 
-    pub(crate) fn serialize_with_header(
+    fn serialize_with_header_inner(
         &self,
         bytes: &mut BytesMut,
         extra_data: u32,
@@ -47,6 +47,21 @@ impl<T: Serialize> Request<T> {
         bytes[start..(start + 4)].copy_from_slice(&header);
 
         Ok(())
+    }
+
+    /// On error, `bytes` stays unchanged.
+    pub(crate) fn serialize_with_header(
+        &self,
+        bytes: &mut BytesMut,
+        extra_data: u32,
+    ) -> Result<(), Error> {
+        let start = bytes.len();
+
+        let res = self.serialize_with_header_inner(bytes, extra_data);
+
+        bytes.truncate(start);
+
+        res
     }
 
     /// If the slice is not large enough, the function will panic.
