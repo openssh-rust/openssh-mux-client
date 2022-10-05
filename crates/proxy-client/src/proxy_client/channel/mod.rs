@@ -1,5 +1,7 @@
 use std::sync::{atomic::AtomicU8, Arc};
 
+use super::{ChannelDataArenaArc, SharedData};
+
 mod channel_state;
 pub(super) use channel_state::{
     ChannelState, OpenChannelRequestedInner, OpenChennelRes, ProcessStatus,
@@ -48,4 +50,19 @@ pub(super) struct ChannelData {
 
     /// Use u64 to avoid overflow.
     pub(super) sender_window_size: AwaitableAtomicU64,
+}
+
+/// Reference to the channel.
+/// Would send close on drop.
+#[derive(Clone, Debug)]
+struct ChannelRef {
+    shared_data: SharedData,
+    channel_data: ChannelDataArenaArc,
+}
+
+impl Drop for ChannelRef {
+    fn drop(&mut self) {
+        // Send close
+        todo!()
+    }
 }
