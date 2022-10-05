@@ -39,7 +39,13 @@ impl ChannelInput {
     ///
     /// This function would not modify any existing data in `self.buffer`
     fn create_data_transfer_header(&mut self, n: u32) -> Result<Bytes, Error> {
-        DataTransfer::create_header(self.channel_ref.channel_id(), n, &mut self.buffer)
+        let before = self.buffer.len();
+        let res = DataTransfer::create_header(self.channel_ref.channel_id(), n, &mut self.buffer);
+        let after = self.buffer.len();
+
+        debug_assert_eq!(before, after);
+
+        res
     }
 
     fn try_flush(&mut self) -> Result<(), Error> {
