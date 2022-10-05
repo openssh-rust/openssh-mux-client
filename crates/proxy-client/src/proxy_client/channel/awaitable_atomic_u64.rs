@@ -35,6 +35,44 @@ impl AwaitableAtomicU64 {
     /// or wait until it is changed to non-zero.
     ///
     /// It will set the atomic to 0 atomically before returning.
+    pub(crate) fn poll_until_non_zero(&self, cx: &mut Context<'_>) -> Poll<NonZeroU64> {
+        // Point 1
+        if let Some(int) = self.get_non_zero() {
+            return Poll::Ready(int);
+        }
+
+        // Point 2
+        let mut guard = self.waker.lock().unwrap();
+
+        // Retest the condition since [`AtomicU64::add`] might be called
+        // between point 1 and point 2.
+        if let Some(int) = self.get_non_zero() {
+            return Poll::Ready(int);
+        }
+
+        // Now that we have tested that [`AtomicU64::add`] is not called
+        // just before point 2, we can register the waker here.
+        //
+        // Any [`AtomicU64::add`] called after point 2 will wake us up.
+        let prev_waker = mem::replace(&mut *guard, Some(cx.waker().clone()));
+
+        // Release lock
+        drop(guard);
+
+        drop(prev_waker);
+
+        // One final test to avoid yielding if possible.
+        if let Some(int) = self.get_non_zero() {
+            Poll::Ready(int)
+        } else {
+            Poll::Pending
+        }
+    }
+
+    /// Return the atomic value if it is non-zero,
+    /// or wait until it is changed to non-zero.
+    ///
+    /// It will set the atomic to 0 atomically before returning.
     pub(crate) fn wait_until_non_zero(&self) -> impl Future<Output = NonZeroU64> + '_ {
         struct WaitUntilNonZero<'a>(&'a AwaitableAtomicU64);
 
@@ -42,39 +80,7 @@ impl AwaitableAtomicU64 {
             type Output = NonZeroU64;
 
             fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-                let this = self.0;
-
-                // Point 1
-                if let Some(int) = this.get_non_zero() {
-                    return Poll::Ready(int);
-                }
-
-                // Point 2
-                let mut guard = this.waker.lock().unwrap();
-
-                // Retest the condition since [`AtomicU64::add`] might be called
-                // between point 1 and point 2.
-                if let Some(int) = this.get_non_zero() {
-                    return Poll::Ready(int);
-                }
-
-                // Now that we have tested that [`AtomicU64::add`] is not called
-                // just before point 2, we can register the waker here.
-                //
-                // Any [`AtomicU64::add`] called after point 2 will wake us up.
-                let prev_waker = mem::replace(&mut *guard, Some(cx.waker().clone()));
-
-                // Release lock
-                drop(guard);
-
-                drop(prev_waker);
-
-                // One final test to avoid yielding if possible.
-                if let Some(int) = this.get_non_zero() {
-                    Poll::Ready(int)
-                } else {
-                    Poll::Pending
-                }
+                self.0.poll_until_non_zero(cx)
             }
         }
 
