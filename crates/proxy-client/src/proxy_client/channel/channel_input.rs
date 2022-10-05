@@ -7,7 +7,7 @@ use std::{
 };
 
 use bytes::{Bytes, BytesMut};
-use futures_util::{ready, sink::Sink};
+use futures_util::{ready, Sink};
 use tokio::io::AsyncWrite;
 
 use super::ChannelRef;
@@ -55,7 +55,7 @@ impl ChannelInput {
             .get()
             .min(self.curr_sender_win.try_into().unwrap_or(u32::MAX));
 
-        if max == 0 {
+        if max == 0 || self.pending_bytes.is_empty() {
             return Ok(());
         }
 
