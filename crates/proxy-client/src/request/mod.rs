@@ -33,7 +33,7 @@ impl<T: Serialize> Request<T> {
         &self,
         bytes: &mut BytesMut,
         extra_data: usize,
-    ) -> Result<Bytes, Error> {
+    ) -> Result<(), Error> {
         let extra_data: u32 = extra_data
             .try_into()
             .map_err(|_| ssh_format::Error::TooLong)?;
@@ -50,8 +50,7 @@ impl<T: Serialize> Request<T> {
         let header = serializer.create_header(extra_data)?;
         bytes[start..(start + 4)].copy_from_slice(&header);
 
-        // Split and freeze it
-        Ok(bytes.split().freeze())
+        Ok(())
     }
 
     /// If the slice is not large enough, the function will panic.
