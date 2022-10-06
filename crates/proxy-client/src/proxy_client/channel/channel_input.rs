@@ -40,7 +40,7 @@ impl ChannelInput {
         self.pending_bytes.push(bytes);
     }
 
-    fn try_update_curr_sender_win(&mut self) {
+    fn update_curr_sender_win_size(&mut self) {
         self.curr_sender_win += self.channel_ref.channel_data.sender_window_size.get();
     }
 
@@ -160,7 +160,7 @@ impl Sink<Bytes> for ChannelInput {
         if !bytes.is_empty() {
             self.add_pending_byte(bytes);
 
-            self.try_update_curr_sender_win();
+            self.update_curr_sender_win_size();
 
             let curr_sender_win: usize = self.curr_sender_win.try_into().unwrap_or(usize::MAX);
             let max_packet_size: usize =
@@ -180,7 +180,7 @@ impl Sink<Bytes> for ChannelInput {
                 ready!(self.as_mut().poll_ready(cx))?;
             } else {
                 // Try to send as much as we can in one single packet
-                self.try_update_curr_sender_win();
+                self.update_curr_sender_win_size();
             }
 
             Pin::into_inner(self.as_mut()).try_flush()?;
@@ -276,7 +276,7 @@ impl Drop for ChannelInput {
         if self.pending_bytes.is_empty() {
             self.send_eof_packet().ok();
         } else {
-            self.try_update_curr_sender_win();
+            self.update_curr_sender_win_size();
 
             if self.try_flush().is_err() || self.pending_bytes.is_empty() {
                 self.send_eof_packet().ok();
