@@ -22,6 +22,9 @@ pub(super) use awaitable_atomic_u64::AwaitableAtomicU64;
 mod channel_input;
 pub use channel_input::ChannelInput;
 
+mod channel_output;
+pub use channel_output::ChannelOutput;
+
 #[derive(Debug)]
 // Use C repr so that we can decide order of fields here
 // and avoid false sharing if possible.
