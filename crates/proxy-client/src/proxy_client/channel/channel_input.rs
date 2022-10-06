@@ -6,7 +6,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use futures_util::{ready, Sink, SinkExt};
 use tokio::io::AsyncWrite;
 
