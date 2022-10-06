@@ -104,5 +104,6 @@ impl ChannelRef {
 impl Drop for ChannelRef {
     fn drop(&mut self) {
         self.send_close().ok();
+        ChannelDataArenaArc::remove(&self.channel_data);
     }
 }
