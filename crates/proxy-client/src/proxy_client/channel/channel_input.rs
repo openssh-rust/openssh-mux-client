@@ -207,6 +207,7 @@ impl AsyncWrite for ChannelInput {
         let buffer = &mut self.buffer;
 
         debug_assert!(buffer.is_empty());
+        buffer.clear();
 
         buffer.extend_from_slice(buf);
         let bytes = buffer.split().freeze();
@@ -229,13 +230,17 @@ impl AsyncWrite for ChannelInput {
         let buffer = &mut self.buffer;
 
         debug_assert!(buffer.is_empty());
+        buffer.clear();
+
+        let len: usize = bufs.iter().map(|io_slice| io_slice.len()).sum();
+
+        buffer.reserve(len);
 
         for buf in bufs {
             buffer.extend_from_slice(buf);
         }
 
         let bytes = buffer.split().freeze();
-        let len = bytes.len();
 
         self.start_send(bytes).map_err(Error::into_io_error)?;
 
@@ -258,6 +263,7 @@ impl ChannelInput {
     fn send_eof_packet(&mut self) -> Result<(), Error> {
         let buffer = &mut self.buffer;
         debug_assert!(buffer.is_empty());
+        buffer.clear();
 
         ChannelEof::new(self.channel_ref.channel_id()).serialize_with_header(buffer, 0)?;
         let bytes = buffer.split().freeze();
