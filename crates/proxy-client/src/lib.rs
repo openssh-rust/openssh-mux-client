@@ -1,5 +1,7 @@
 pub use non_zero_byte_slice::*;
 
+mod proxy_client;
+
 mod error;
 pub use error::*;
 

@@ -23,4 +23,21 @@ pub enum Error {
     /// Failed to open channel
     #[error(transparent)]
     ChannelOpenFailure(#[from] OpenFailure),
+
+    /// Unexpected channel state
+    #[error("Expected {expected_state} but actual state is {actual_state}: {msg}")]
+    UnexpectedChannelState {
+        expected_state: &'static &'static str,
+        actual_state: &'static str,
+        msg: &'static &'static str,
+    },
+}
+
+impl Error {
+    pub fn into_io_error(self) -> io::Error {
+        match self {
+            Error::IOError(io_error) => io_error,
+            other => io::Error::new(io::ErrorKind::Other, other),
+        }
+    }
 }

@@ -32,8 +32,8 @@ impl ChannelRequest {
 
         let (header, data): (ChannelRequestHeader, _) = from_bytes(&bytes)?;
         Ok(match header.request_type.as_ref() {
-            "exit-status" => StatusCode(deserialize(&data)?),
-            "exit-signal" => KilledBySignal(deserialize(&data)?),
+            "exit-status" => StatusCode(deserialize(data)?),
+            "exit-signal" => KilledBySignal(deserialize(data)?),
             _ => Unknown,
         })
     }
