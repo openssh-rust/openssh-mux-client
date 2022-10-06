@@ -161,7 +161,7 @@ impl Sink<Bytes> for ChannelInput {
             let max_packet_size: usize =
                 self.max_packet_size.get().try_into().unwrap_or(usize::MAX);
 
-            if curr_sender_win > 0 && self.pending_len == curr_sender_win.min(max_packet_size) {
+            if curr_sender_win > 0 && self.pending_len >= curr_sender_win.min(max_packet_size) {
                 Pin::into_inner(self.as_mut()).try_flush()?;
             }
         }
