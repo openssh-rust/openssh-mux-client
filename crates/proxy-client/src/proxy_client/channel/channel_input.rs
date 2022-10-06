@@ -1,17 +1,20 @@
 use std::{
     convert::TryInto,
-    io,
+    io, mem,
     num::{NonZeroU32, NonZeroU64},
     pin::Pin,
     task::{Context, Poll},
 };
 
 use bytes::{Bytes, BytesMut};
-use futures_util::{ready, Sink};
+use futures_util::{ready, Sink, SinkExt};
 use tokio::io::AsyncWrite;
 
 use super::ChannelRef;
-use crate::{request::DataTransfer, Error};
+use crate::{
+    request::{ChannelEof, DataTransfer},
+    Error,
+};
 
 /// Input of the Channel
 #[derive(Debug)]
@@ -35,6 +38,10 @@ impl ChannelInput {
     fn add_pending_byte(&mut self, bytes: Bytes) {
         self.pending_len += bytes.len();
         self.pending_bytes.push(bytes);
+    }
+
+    fn try_update_curr_sender_win(&mut self) {
+        self.curr_sender_win += self.channel_ref.channel_data.sender_window_size.get();
     }
 
     /// * `n` - number of bytes to write
@@ -153,9 +160,7 @@ impl Sink<Bytes> for ChannelInput {
         if !bytes.is_empty() {
             self.add_pending_byte(bytes);
 
-            if self.curr_sender_win == 0 {
-                self.curr_sender_win = self.channel_ref.channel_data.sender_window_size.get();
-            }
+            self.try_update_curr_sender_win();
 
             let curr_sender_win: usize = self.curr_sender_win.try_into().unwrap_or(usize::MAX);
             let max_packet_size: usize =
@@ -173,6 +178,9 @@ impl Sink<Bytes> for ChannelInput {
         while !self.pending_bytes.is_empty() {
             if self.curr_sender_win == 0 {
                 ready!(self.as_mut().poll_ready(cx))?;
+            } else {
+                // Try to send as much as we can in one single packet
+                self.try_update_curr_sender_win();
             }
 
             Pin::into_inner(self.as_mut()).try_flush()?;
@@ -246,10 +254,57 @@ impl AsyncWrite for ChannelInput {
     }
 }
 
+impl ChannelInput {
+    fn send_eof_packet(&mut self) -> Result<(), Error> {
+        let buffer = &mut self.buffer;
+        debug_assert!(buffer.is_empty());
+
+        ChannelEof::new(self.channel_ref.channel_id()).serialize_with_header(buffer, 0)?;
+        let bytes = buffer.split().freeze();
+
+        self.channel_ref
+            .shared_data
+            .get_write_channel()
+            .push_bytes(bytes);
+
+        Ok(())
+    }
+}
+
 impl Drop for ChannelInput {
     fn drop(&mut self) {
-        // Send all pending data, then send
-        // Eof
-        todo!()
+        if self.pending_bytes.is_empty() {
+            self.send_eof_packet().ok();
+        } else {
+            self.try_update_curr_sender_win();
+
+            if self.try_flush().is_err() || self.pending_bytes.is_empty() {
+                self.send_eof_packet().ok();
+            } else {
+                // Send all pending data in another task
+                //
+                // After constructing `new_channel_input`,
+                // the old one does not contain any pending data at all,
+                // and it would be simply dropped without sending eof.
+                let mut new_channel_input = ChannelInput {
+                    channel_ref: self.channel_ref.clone(),
+                    max_packet_size: self.max_packet_size,
+                    curr_sender_win: self.curr_sender_win,
+
+                    pending_bytes: mem::take(&mut self.pending_bytes),
+                    pending_len: mem::take(&mut self.pending_len),
+
+                    buffer: mem::take(&mut self.buffer),
+                };
+                tokio::spawn(async move {
+                    if new_channel_input.close().await.is_err() {
+                        // Make sure drop implementation would send eof packet
+                        // instead of trying to flush the data again
+                        // or create yet another task.
+                        new_channel_input.pending_bytes.clear();
+                    }
+                });
+            }
+        }
     }
 }
