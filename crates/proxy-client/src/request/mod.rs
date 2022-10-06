@@ -1,6 +1,4 @@
-use std::convert::TryInto;
-
-use bytes::{Bytes, BytesMut};
+use bytes::BytesMut;
 use serde::Serialize;
 use ssh_format::{SerOutput, Serializer};
 
@@ -74,10 +72,6 @@ impl<T: Serialize> Request<T> {
         slice: &mut [u8],
         extra_data: u32,
     ) -> Result<usize, Error> {
-        let extra_data: u32 = extra_data
-            .try_into()
-            .map_err(|_| ssh_format::Error::TooLong)?;
-
         // Serialize
         let mut buffer = SliceOutput(&mut slice[4..], 0);
 
