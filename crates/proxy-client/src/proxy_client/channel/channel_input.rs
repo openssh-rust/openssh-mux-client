@@ -30,8 +30,6 @@ pub struct ChannelInput {
     /// Bytes that haven't been sent yet.
     pending_bytes: Vec<Bytes>,
     pending_len: usize,
-
-    buffer: BytesMut,
 }
 
 impl ChannelInput {
@@ -48,9 +46,13 @@ impl ChannelInput {
     ///
     /// This function would not modify any existing data in `self.buffer`
     fn create_data_transfer_header(&mut self, n: u32) -> Result<Bytes, Error> {
-        let before = self.buffer.len();
-        let res = DataTransfer::create_header(self.channel_ref.channel_id(), n, &mut self.buffer);
-        let after = self.buffer.len();
+        let channel_id = self.channel_ref.channel_id();
+
+        let buffer = &mut self.channel_ref.buffer;
+
+        let before = buffer.len();
+        let res = DataTransfer::create_header(channel_id, n, buffer);
+        let after = buffer.len();
 
         debug_assert_eq!(before, after);
 
@@ -204,7 +206,7 @@ impl AsyncWrite for ChannelInput {
             return Poll::Ready(Ok(0));
         }
 
-        let buffer = &mut self.buffer;
+        let buffer = &mut self.channel_ref.buffer;
 
         debug_assert!(buffer.is_empty());
         buffer.clear();
@@ -227,7 +229,7 @@ impl AsyncWrite for ChannelInput {
             return Poll::Ready(Ok(0));
         }
 
-        let buffer = &mut self.buffer;
+        let buffer = &mut self.channel_ref.buffer;
 
         debug_assert!(buffer.is_empty());
         buffer.clear();
@@ -261,11 +263,13 @@ impl AsyncWrite for ChannelInput {
 
 impl ChannelInput {
     fn send_eof_packet(&mut self) -> Result<(), Error> {
-        let buffer = &mut self.buffer;
+        let channel_id = self.channel_ref.channel_id();
+
+        let buffer = &mut self.channel_ref.buffer;
         debug_assert!(buffer.is_empty());
         buffer.clear();
 
-        ChannelEof::new(self.channel_ref.channel_id()).serialize_with_header(buffer, 0)?;
+        ChannelEof::new(channel_id).serialize_with_header(buffer, 0)?;
         let bytes = buffer.split().freeze();
 
         self.channel_ref
@@ -299,8 +303,6 @@ impl Drop for ChannelInput {
 
                     pending_bytes: mem::take(&mut self.pending_bytes),
                     pending_len: mem::take(&mut self.pending_len),
-
-                    buffer: mem::take(&mut self.buffer),
                 };
                 tokio::spawn(async move {
                     if new_channel_input.close().await.is_err() {

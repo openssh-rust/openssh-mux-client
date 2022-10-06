@@ -1,6 +1,9 @@
 use std::sync::{atomic::AtomicU8, Arc};
 
+use bytes::BytesMut;
+
 use super::{ChannelDataArenaArc, SharedData};
+use crate::request::ChannelClose;
 
 mod channel_state;
 pub(super) use channel_state::{
@@ -57,10 +60,21 @@ pub(super) struct ChannelData {
 
 /// Reference to the channel.
 /// Would send close on drop.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct ChannelRef {
     shared_data: SharedData,
     channel_data: ChannelDataArenaArc,
+    buffer: BytesMut,
+}
+
+impl Clone for ChannelRef {
+    fn clone(&self) -> Self {
+        Self {
+            shared_data: self.shared_data.clone(),
+            channel_data: self.channel_data.clone(),
+            buffer: BytesMut::new(),
+        }
+    }
 }
 
 impl ChannelRef {
