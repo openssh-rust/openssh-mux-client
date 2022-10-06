@@ -3,7 +3,7 @@ use std::sync::{atomic::AtomicU8, Arc};
 use bytes::BytesMut;
 
 use super::{ChannelDataArenaArc, SharedData};
-use crate::request::ChannelClose;
+use crate::{request::ChannelClose, Error};
 
 mod channel_state;
 pub(super) use channel_state::{
@@ -81,11 +81,25 @@ impl ChannelRef {
     fn channel_id(&self) -> u32 {
         ChannelDataArenaArc::slot(&self.channel_data)
     }
+
+    fn send_close(&mut self) -> Result<(), Error> {
+        let channel_id = self.channel_id();
+
+        let buffer = &mut self.buffer;
+        buffer.clear();
+
+        ChannelClose::new(channel_id).serialize_with_header(buffer, 0)?;
+
+        self.shared_data
+            .get_write_channel()
+            .push_bytes(buffer.split().freeze());
+
+        Ok(())
+    }
 }
 
 impl Drop for ChannelRef {
     fn drop(&mut self) {
-        // Send close
-        todo!()
+        self.send_close().ok();
     }
 }
