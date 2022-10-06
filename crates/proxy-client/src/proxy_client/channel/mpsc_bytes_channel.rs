@@ -29,6 +29,7 @@ impl MpscBytesChannel {
     ///   swapped with the internal buffers
     ///   if the internal buffer is not empty and `is_eof` is false.
     ///   On eof, it will remain empty.
+    ///   Every `Bytes` in it must not be empty.
     pub(crate) fn poll_for_data<'a>(
         &'a self,
         alt_buffer: &'a mut Vec<Bytes>,
@@ -62,6 +63,7 @@ impl MpscBytesChannel {
     ///   swapped with the internal buffers
     ///   if the internal buffer is not empty and `is_eof` is false.
     ///   On eof, it will remain empty.
+    ///   Every `Bytes` in it must not be empty.
     pub(crate) fn wait_for_data<'a>(
         &'a self,
         alt_buffer: &'a mut Vec<Bytes>,
@@ -91,12 +93,15 @@ impl MpscBytesChannel {
 /// Methods for the write end
 impl MpscBytesChannel {
     pub(crate) fn push_bytes(&self, data: Bytes) {
-        self.add_more_data(|buffer| buffer.push(data))
+        if !data.is_empty() {
+            self.add_more_data(1, Some(data))
+        }
     }
 
-    pub(crate) fn add_more_data<F>(&self, callback: F)
+    /// * `n` - number of space to reserve before extending using iter.
+    pub(crate) fn add_more_data<It>(&self, n: usize, iter: It)
     where
-        F: FnOnce(&mut Vec<Bytes>),
+        It: IntoIterator<Item = Bytes>,
     {
         let mut guard = self.0.lock().unwrap();
 
@@ -104,9 +109,18 @@ impl MpscBytesChannel {
             return;
         }
 
-        callback(&mut guard.buffer);
+        let buffer = &mut guard.buffer;
 
-        Self::wake_up_reader(guard);
+        let before = buffer.len();
+
+        buffer.reserve_exact(n);
+        buffer.extend(iter.into_iter().filter(|bytes| !bytes.is_empty()));
+
+        let after = buffer.len();
+
+        if after > before {
+            Self::wake_up_reader(guard);
+        }
     }
 
     /// You must not call add_more_data after this call.

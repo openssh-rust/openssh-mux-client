@@ -114,24 +114,21 @@ impl ChannelInput {
             bytes_written += n;
         }
 
-        // The closure holds a mutex, put drain outside
-        // so that the dropping of it is not included in the
-        // critical section.
         let mut drain = pending_bytes.drain(0..pending_end);
 
         self.channel_ref
             .shared_data
             .get_write_channel()
-            .add_more_data(|buffer| {
-                buffer.reserve(1 + drain.len() + maybe_last_bytes.iter().len());
-
-                buffer.push(header);
-
-                // Move the bytes into buffer;
-                buffer.extend(&mut drain);
-
-                buffer.extend(maybe_last_bytes);
-            });
+            .add_more_data(
+                1 + drain.len() + maybe_last_bytes.iter().len(),
+                Some(header)
+                    .into_iter()
+                    // Use mutable alias to drain since add_more_data internally
+                    // holds a mutex, so here we drop `drain` outside of it to
+                    // reduce critical section.
+                    .chain(&mut drain)
+                    .chain(maybe_last_bytes),
+            );
 
         self.pending_len -= bytes_written;
 

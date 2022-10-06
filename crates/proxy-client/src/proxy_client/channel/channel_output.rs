@@ -23,6 +23,7 @@ pub struct ChannelOutput {
 
     /// FIFO List of bytes.
     /// The queue head is at the end of the vec.
+    /// Every `Bytes` in it must not be empty.
     fifo: Vec<Bytes>,
 
     is_eof: bool,
