@@ -63,6 +63,13 @@ pub(super) struct ChannelData {
 
 /// Reference to the channel.
 /// Would send close on drop.
+///
+/// ChannelRef must be created when channel is fully established
+/// (ChannelState::wait_for_confirmation returns OpenChennelRes::Confirmed).
+///
+/// Before confirmation, it is the initiator's responsibility to remove
+/// the ChannelDataArenaArc.
+/// Afterwards, it would be the read_task's responsibility.
 #[derive(Clone, Debug)]
 struct ChannelRef {
     shared_data: SharedData,
@@ -93,6 +100,5 @@ impl ChannelRef {
 impl Drop for ChannelRef {
     fn drop(&mut self) {
         self.send_close();
-        ChannelDataArenaArc::remove(&self.channel_data);
     }
 }
