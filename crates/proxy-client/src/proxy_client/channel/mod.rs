@@ -1,4 +1,7 @@
-use std::sync::{atomic::AtomicU8, Arc};
+use std::{
+    ops::Deref,
+    sync::{atomic::AtomicU8, Arc},
+};
 
 use bytes::BytesMut;
 
@@ -63,47 +66,52 @@ pub(super) struct ChannelData {
 
 /// Reference to the channel.
 /// Would send close on drop.
+///
+/// ChannelRef must be created when channel is fully established
+/// (ChannelState::wait_for_confirmation returns OpenChennelRes::Confirmed).
+///
+/// Before confirmation, it is the initiator's responsibility to remove
+/// the ChannelDataArenaArc.
+/// Afterwards, it would be the read_task's responsibility.
+#[derive(Clone, Debug)]
+struct ChannelRef(Arc<ChannelRefInner>);
+
 #[derive(Debug)]
-struct ChannelRef {
+struct ChannelRefInner {
     shared_data: SharedData,
     channel_data: ChannelDataArenaArc,
-    buffer: BytesMut,
 }
 
-impl Clone for ChannelRef {
-    fn clone(&self) -> Self {
-        Self {
-            shared_data: self.shared_data.clone(),
-            channel_data: self.channel_data.clone(),
-            buffer: BytesMut::new(),
-        }
-    }
-}
-
-impl ChannelRef {
+impl ChannelRefInner {
     fn channel_id(&self) -> u32 {
         ChannelDataArenaArc::slot(&self.channel_data)
     }
 
-    fn send_close(&mut self) -> Result<(), Error> {
+    fn send_close(&mut self) {
         let channel_id = self.channel_id();
 
-        let buffer = &mut self.buffer;
-        buffer.clear();
+        // The close packet is 10 bytes large
+        let mut buffer = BytesMut::with_capacity(10);
 
-        ChannelClose::new(channel_id).serialize_with_header(buffer, 0)?;
+        ChannelClose::new(channel_id)
+            .serialize_with_header(&mut buffer, 0)
+            .expect("Serialization should not fail here");
 
         self.shared_data
             .get_write_channel()
-            .push_bytes(buffer.split().freeze());
-
-        Ok(())
+            .push_bytes(buffer.freeze());
+    }
+}
+impl Drop for ChannelRefInner {
+    fn drop(&mut self) {
+        self.send_close();
     }
 }
 
-impl Drop for ChannelRef {
-    fn drop(&mut self) {
-        self.send_close().ok();
-        ChannelDataArenaArc::remove(&self.channel_data);
+impl Deref for ChannelRef {
+    type Target = ChannelRefInner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }

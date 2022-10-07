@@ -6,7 +6,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use futures_util::{ready, Sink, SinkExt};
 use tokio::io::AsyncWrite;
 
@@ -30,6 +30,8 @@ pub struct ChannelInput {
     /// Bytes that haven't been sent yet.
     pending_bytes: Vec<Bytes>,
     pending_len: usize,
+
+    buffer: BytesMut,
 }
 
 impl ChannelInput {
@@ -48,7 +50,7 @@ impl ChannelInput {
     fn create_data_transfer_header(&mut self, n: u32) -> Result<Bytes, Error> {
         let channel_id = self.channel_ref.channel_id();
 
-        let buffer = &mut self.channel_ref.buffer;
+        let buffer = &mut self.buffer;
 
         let before = buffer.len();
         let res = DataTransfer::create_header(channel_id, n, buffer);
@@ -203,7 +205,7 @@ impl AsyncWrite for ChannelInput {
             return Poll::Ready(Ok(0));
         }
 
-        let buffer = &mut self.channel_ref.buffer;
+        let buffer = &mut self.buffer;
 
         debug_assert!(buffer.is_empty());
         buffer.clear();
@@ -226,7 +228,7 @@ impl AsyncWrite for ChannelInput {
             return Poll::Ready(Ok(0));
         }
 
-        let buffer = &mut self.channel_ref.buffer;
+        let buffer = &mut self.buffer;
 
         debug_assert!(buffer.is_empty());
         buffer.clear();
@@ -259,34 +261,34 @@ impl AsyncWrite for ChannelInput {
 }
 
 impl ChannelInput {
-    fn send_eof_packet(&mut self) -> Result<(), Error> {
+    fn send_eof_packet(&mut self) {
         let channel_id = self.channel_ref.channel_id();
 
-        let buffer = &mut self.channel_ref.buffer;
+        let buffer = &mut self.buffer;
         debug_assert!(buffer.is_empty());
         buffer.clear();
 
-        ChannelEof::new(channel_id).serialize_with_header(buffer, 0)?;
+        ChannelEof::new(channel_id)
+            .serialize_with_header(buffer, 0)
+            .expect("Serialization should not fail here");
         let bytes = buffer.split().freeze();
 
         self.channel_ref
             .shared_data
             .get_write_channel()
             .push_bytes(bytes);
-
-        Ok(())
     }
 }
 
 impl Drop for ChannelInput {
     fn drop(&mut self) {
         if self.pending_bytes.is_empty() {
-            self.send_eof_packet().ok();
+            self.send_eof_packet();
         } else {
             self.update_curr_sender_win_size();
 
             if self.try_flush().is_err() || self.pending_bytes.is_empty() {
-                self.send_eof_packet().ok();
+                self.send_eof_packet();
             } else {
                 // Send all pending data in another task
                 //
@@ -300,6 +302,8 @@ impl Drop for ChannelInput {
 
                     pending_bytes: mem::take(&mut self.pending_bytes),
                     pending_len: mem::take(&mut self.pending_len),
+
+                    buffer: mem::take(&mut self.buffer),
                 };
                 tokio::spawn(async move {
                     if new_channel_input.close().await.is_err() {
