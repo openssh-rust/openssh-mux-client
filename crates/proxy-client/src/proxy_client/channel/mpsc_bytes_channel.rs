@@ -39,6 +39,8 @@ impl MpscBytesChannel {
 
         let mut guard = self.0.lock().unwrap();
 
+        debug_assert!(!guard.reader_dropped);
+
         if !guard.buffer.is_empty() {
             mem::swap(&mut guard.buffer, alt_buffer);
             return Poll::Ready(());
