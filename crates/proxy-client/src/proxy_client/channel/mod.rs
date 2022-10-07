@@ -63,21 +63,10 @@ pub(super) struct ChannelData {
 
 /// Reference to the channel.
 /// Would send close on drop.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct ChannelRef {
     shared_data: SharedData,
     channel_data: ChannelDataArenaArc,
-    buffer: BytesMut,
-}
-
-impl Clone for ChannelRef {
-    fn clone(&self) -> Self {
-        Self {
-            shared_data: self.shared_data.clone(),
-            channel_data: self.channel_data.clone(),
-            buffer: BytesMut::new(),
-        }
-    }
 }
 
 impl ChannelRef {
@@ -88,14 +77,14 @@ impl ChannelRef {
     fn send_close(&mut self) -> Result<(), Error> {
         let channel_id = self.channel_id();
 
-        let buffer = &mut self.buffer;
-        buffer.clear();
+        // The close packet is 10 bytes large
+        let mut buffer = BytesMut::with_capacity(10);
 
-        ChannelClose::new(channel_id).serialize_with_header(buffer, 0)?;
+        ChannelClose::new(channel_id).serialize_with_header(&mut buffer, 0)?;
 
         self.shared_data
             .get_write_channel()
-            .push_bytes(buffer.split().freeze());
+            .push_bytes(buffer.freeze());
 
         Ok(())
     }
