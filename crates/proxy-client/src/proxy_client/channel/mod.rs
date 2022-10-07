@@ -74,25 +74,25 @@ impl ChannelRef {
         ChannelDataArenaArc::slot(&self.channel_data)
     }
 
-    fn send_close(&mut self) -> Result<(), Error> {
+    fn send_close(&mut self) {
         let channel_id = self.channel_id();
 
         // The close packet is 10 bytes large
         let mut buffer = BytesMut::with_capacity(10);
 
-        ChannelClose::new(channel_id).serialize_with_header(&mut buffer, 0)?;
+        ChannelClose::new(channel_id)
+            .serialize_with_header(&mut buffer, 0)
+            .expect("Serialization should not fail here");
 
         self.shared_data
             .get_write_channel()
             .push_bytes(buffer.freeze());
-
-        Ok(())
     }
 }
 
 impl Drop for ChannelRef {
     fn drop(&mut self) {
-        self.send_close().ok();
+        self.send_close();
         ChannelDataArenaArc::remove(&self.channel_data);
     }
 }
