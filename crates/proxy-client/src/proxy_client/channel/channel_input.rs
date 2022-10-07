@@ -259,34 +259,34 @@ impl AsyncWrite for ChannelInput {
 }
 
 impl ChannelInput {
-    fn send_eof_packet(&mut self) -> Result<(), Error> {
+    fn send_eof_packet(&mut self) {
         let channel_id = self.channel_ref.channel_id();
 
         let buffer = &mut self.channel_ref.buffer;
         debug_assert!(buffer.is_empty());
         buffer.clear();
 
-        ChannelEof::new(channel_id).serialize_with_header(buffer, 0)?;
+        ChannelEof::new(channel_id)
+            .serialize_with_header(buffer, 0)
+            .expect("Serialization should not fail here");
         let bytes = buffer.split().freeze();
 
         self.channel_ref
             .shared_data
             .get_write_channel()
             .push_bytes(bytes);
-
-        Ok(())
     }
 }
 
 impl Drop for ChannelInput {
     fn drop(&mut self) {
         if self.pending_bytes.is_empty() {
-            self.send_eof_packet().ok();
+            self.send_eof_packet();
         } else {
             self.update_curr_sender_win_size();
 
             if self.try_flush().is_err() || self.pending_bytes.is_empty() {
-                self.send_eof_packet().ok();
+                self.send_eof_packet();
             } else {
                 // Send all pending data in another task
                 //
