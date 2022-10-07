@@ -1,4 +1,7 @@
-use std::sync::{atomic::AtomicU8, Arc};
+use std::{
+    ops::Deref,
+    sync::{atomic::AtomicU8, Arc},
+};
 
 use bytes::BytesMut;
 
@@ -71,12 +74,15 @@ pub(super) struct ChannelData {
 /// the ChannelDataArenaArc.
 /// Afterwards, it would be the read_task's responsibility.
 #[derive(Clone, Debug)]
-struct ChannelRef {
+struct ChannelRef(Arc<ChannelRefInner>);
+
+#[derive(Debug)]
+struct ChannelRefInner {
     shared_data: SharedData,
     channel_data: ChannelDataArenaArc,
 }
 
-impl ChannelRef {
+impl ChannelRefInner {
     fn channel_id(&self) -> u32 {
         ChannelDataArenaArc::slot(&self.channel_data)
     }
@@ -96,9 +102,16 @@ impl ChannelRef {
             .push_bytes(buffer.freeze());
     }
 }
-
-impl Drop for ChannelRef {
+impl Drop for ChannelRefInner {
     fn drop(&mut self) {
         self.send_close();
+    }
+}
+
+impl Deref for ChannelRef {
+    type Target = ChannelRefInner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
