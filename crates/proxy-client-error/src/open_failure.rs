@@ -4,7 +4,16 @@ use serde::{de::Deserializer, Deserialize};
 use thiserror::Error as ThisError;
 use vec_strings::TwoStrs;
 
-use crate::constants::*;
+macro_rules! def_u32_constants {
+    ( $name:ident, $val:literal ) => {
+        const $name: u32 = $val;
+    };
+}
+
+def_u32_constants!(SSH_OPEN_ADMINISTRATIVELY_PROHIBITED, 1);
+def_u32_constants!(SSH_OPEN_CONNECT_FAILED, 2);
+def_u32_constants!(SSH_OPEN_UNKNOWN_CHANNEL_TYPE, 3);
+def_u32_constants!(SSH_OPEN_RESOURCE_SHORTAGE, 4);
 
 #[derive(Clone, Deserialize, Debug)]
 #[repr(transparent)]
@@ -36,6 +45,7 @@ impl fmt::Display for ErrMsg {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[non_exhaustive]
 pub enum ErrorCode {
     AdministrativelyProhibited,
     ConnectFailed,

@@ -1,0 +1,19 @@
+[package]
+name = "openssh-proxy-client-error"
+version = "0.1.0"
+edition = "2018"
+
+authors = ["Jiahao XU <Jiahao_XU@outlook.com>"]
+
+license = "MIT"
+description = "openssh proxy client for openssh multiplex server."
+repository = "https://github.com/openssh-rust/openssh-mux-client"
+
+keywords = ["ssh", "openssh", "multiplex", "async", "network"]
+categories = ["asynchronous", "network-programming", "api-bindings"]
+
+[dependencies]
+serde = { version = "1.0.103", features = ["derive"] }
+ssh_format_error = "0.1"
+vec-strings = { version = "0.4.5", features = ["serde"] }
+thiserror = "1.0.29"

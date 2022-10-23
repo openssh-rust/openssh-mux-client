@@ -3,7 +3,10 @@ use std::num::NonZeroU32;
 use bytes::Bytes;
 use serde::Deserialize;
 
-use crate::{constants::*, Error};
+use crate::{
+    constants::*,
+    error::{Error, OpenFailure},
+};
 
 fn deserialize<'a, T>(s: &'a [u8]) -> Result<T, Error>
 where

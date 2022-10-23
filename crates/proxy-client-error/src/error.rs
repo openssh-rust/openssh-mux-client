@@ -1,9 +1,10 @@
 use std::io;
-use thiserror::Error;
+use thiserror::Error as ThisError;
 
-pub use crate::response::error::*;
+use crate::{OpenFailure, SshFormatError};
 
-#[derive(Debug, Error)]
+#[derive(Debug, ThisError)]
+#[non_exhaustive]
 pub enum Error {
     /// IO Error (Excluding `io::ErrorKind::EWOULDBLOCK`).
     #[error("IO Error: {0}.")]
@@ -11,7 +12,7 @@ pub enum Error {
 
     /// Failed to serialize/deserialize the message: {0}.
     #[error("Failed to serialize/deserialize the message: {0}.")]
-    FormatError(#[from] ssh_format::Error),
+    FormatError(#[from] SshFormatError),
 
     /// Invalid response from the sshd
     #[error("Response from sshd is invalid: {0}")]
