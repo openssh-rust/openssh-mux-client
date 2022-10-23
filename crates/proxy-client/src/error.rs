@@ -33,9 +33,9 @@ pub enum Error {
     },
 }
 
-impl Error {
-    pub fn into_io_error(self) -> io::Error {
-        match self {
+impl From<Error> for io::Error {
+    fn from(err: Error) -> io::Error {
+        match err {
             Error::IOError(io_error) => io_error,
             other => io::Error::new(io::ErrorKind::Other, other),
         }
