@@ -214,7 +214,7 @@ impl AsyncWrite for ChannelInput {
         let bytes = buffer.split().freeze();
         let len = bytes.len();
 
-        self.start_send(bytes).map_err(Error::into_io_error)?;
+        self.start_send(bytes)?;
 
         Poll::Ready(Ok(len))
     }
@@ -243,7 +243,7 @@ impl AsyncWrite for ChannelInput {
 
         let bytes = buffer.split().freeze();
 
-        self.start_send(bytes).map_err(Error::into_io_error)?;
+        self.start_send(bytes)?;
 
         Poll::Ready(Ok(len))
     }
@@ -252,11 +252,11 @@ impl AsyncWrite for ChannelInput {
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Sink::poll_flush(self, cx).map_err(Error::into_io_error)
+        Sink::poll_flush(self, cx).map_err(io::Error::from)
     }
 
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Sink::poll_close(self, cx).map_err(Error::into_io_error)
+        Sink::poll_close(self, cx).map_err(io::Error::from)
     }
 }
 
