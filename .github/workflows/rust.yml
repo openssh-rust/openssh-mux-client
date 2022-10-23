@@ -39,10 +39,7 @@ jobs:
             target/
           key: ${{ github.event.repository.name }}-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}-cargo-check-v2
       - name: cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --all-features
+        run: cargo check --all-features
 
   check:
     runs-on: ubuntu-latest
