@@ -5,7 +5,7 @@ use crate::{
     request::{Fwd, Request, SessionZeroCopy},
     shutdown_mux_master::shutdown_mux_master_from,
     utils::{serialize_u32, SliceExt},
-    Error, EstablishedSession, Response, Result, Session, Socket,
+    Error, ErrorExt, EstablishedSession, Response, Result, Session, Socket,
 };
 
 use std::{
@@ -152,10 +152,7 @@ impl Connection {
                 Ok(self)
             }
         } else {
-            Err(Error::InvalidServerResponse(
-                "Expected Hello message",
-                response,
-            ))
+            Err(Error::invalid_server_response(&"Hello message", &response))
         }
     }
 
@@ -190,9 +187,9 @@ impl Connection {
             Self::check_response_id(request_id, response_id)?;
             NonZeroU32::new(server_pid).ok_or(Error::InvalidPid)
         } else {
-            Err(Error::InvalidServerResponse(
-                "Expected Response::Alive",
-                response,
+            Err(Error::invalid_server_response(
+                &"Response::Alive",
+                &response,
             ))
         }
     }
@@ -275,9 +272,9 @@ impl Connection {
                 return Err(Error::RequestFailure(reason));
             }
             response => {
-                return Err(Error::InvalidServerResponse(
-                    "Expected Response: SessionOpened, PermissionDenied or Failure",
-                    response,
+                return Err(Error::invalid_server_response(
+                    &"SessionOpened, PermissionDenied or Failure",
+                    &response,
                 ))
             }
         };
@@ -420,9 +417,9 @@ impl Connection {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::RequestFailure(reason))
             }
-            response => Err(Error::InvalidServerResponse(
-                "Expected Response: Ok, PermissionDenied or Failure",
-                response,
+            response => Err(Error::invalid_server_response(
+                &"Ok, PermissionDenied or Failure",
+                &response,
             )),
         }
     }
@@ -461,9 +458,9 @@ impl Connection {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::RequestFailure(reason))
             }
-            response => Err(Error::InvalidServerResponse(
-                "Expected Response: RemotePort, PermissionDenied or Failure",
-                response,
+            response => Err(Error::invalid_server_response(
+                &"RemotePort, PermissionDenied or Failure",
+                &response,
             )),
         }
     }
@@ -495,9 +492,9 @@ impl Connection {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::RequestFailure(reason))
             }
-            response => Err(Error::InvalidServerResponse(
-                "Expected Response: Ok, PermissionDenied or Failure",
-                response,
+            response => Err(Error::invalid_server_response(
+                &"Ok, PermissionDenied or Failure",
+                &response,
             )),
         }
     }

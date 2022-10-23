@@ -1,17 +1,17 @@
 use std::io;
-use thiserror::Error;
+use thiserror::Error as ThisError;
 
-use super::Response;
+pub use ssh_format_error::Error as SshFormatError;
 
-#[derive(Debug, Error)]
+#[derive(Debug, ThisError)]
 pub enum Error {
     /// Server speaks multiplex protocol other than protocol 4.
     #[error("Server speaks multiplex protocol other than protocol 4.")]
     UnsupportedMuxProtocol,
 
     /// Server response with unexpected package type {0}: Response {1:#?}.
-    #[error("Server response with unexpected package type {0}: Response {1:#?}.")]
-    InvalidServerResponse(&'static str, Response),
+    #[error("Server response with unexpected package type: expected {0}, actual response {1:#?}.")]
+    InvalidServerResponse(&'static &'static str, Box<str>),
 
     /// Server response with port = 0.
     #[error("Server response with port = 0.")]
@@ -35,7 +35,7 @@ pub enum Error {
 
     /// Failed to serialize/deserialize the message: {0}.
     #[error("Failed to serialize/deserialize the message: {0}.")]
-    FormatError(#[from] ssh_format::Error),
+    FormatError(#[from] SshFormatError),
 
     /// Server refused the request: {0}.
     #[error("Server refused the request: {0}.")]
