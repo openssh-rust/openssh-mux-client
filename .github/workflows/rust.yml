@@ -29,6 +29,8 @@ jobs:
           profile: minimal
           toolchain: stable
       - uses: actions/checkout@v3
+      - name: Create lockfile
+        run: cargo update
       - uses: actions/cache@v3
         with:
           path: |
@@ -46,6 +48,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Create lockfile
+      run: cargo update
     - uses: actions/cache@v3
       with:
         path: |
@@ -71,6 +75,8 @@ jobs:
           toolchain: nightly
           override: true
           components: miri
+    - name: Create lockfile
+      run: cargo update
     - uses: actions/cache@v3
       with:
         path: |
