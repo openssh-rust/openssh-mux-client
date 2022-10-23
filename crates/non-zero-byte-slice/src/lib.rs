@@ -1,5 +1,5 @@
 use std::{
-    borrow::{Borrow, ToOwned},
+    borrow::{Borrow, Cow, ToOwned},
     convert::TryFrom,
     error::Error,
     ffi::{CStr, CString},
@@ -15,11 +15,13 @@ use serde::Serialize;
 pub struct NonZeroByteSlice([u8]);
 
 impl NonZeroByteSlice {
-    pub fn new(bytes: &[u8]) -> Option<&Self> {
-        for byte in bytes {
-            if *byte == 0 {
+    pub const fn new(bytes: &[u8]) -> Option<&Self> {
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i] == 0 {
                 return None;
             }
+            i += 1;
         }
 
         // safety: bytes does not contain 0
@@ -107,6 +109,21 @@ impl NonZeroByteVec {
     pub fn push(&mut self, byte: NonZeroU8) {
         self.0.push(byte.get())
     }
+
+    pub fn from_bytes_slice_lossy(slice: &[u8]) -> Cow<'_, NonZeroByteSlice> {
+        NonZeroByteSlice::new(slice)
+            .map(Cow::Borrowed)
+            .unwrap_or_else(|| {
+                let bytes: Vec<u8> = slice
+                    .iter()
+                    .copied()
+                    .filter(|byte| *byte != b'\0')
+                    .collect();
+
+                // Safety: all null bytes from slice is filtered out.
+                Cow::Owned(unsafe { Self::new_unchecked(bytes) })
+            })
+    }
 }
 
 impl From<&NonZeroByteSlice> for NonZeroByteVec {
@@ -175,5 +192,22 @@ mod tests {
         let mut vec: Vec<_> = (0..3).collect();
         vec.push(0);
         assert_eq!(NonZeroByteVec::from_bytes_remove_nul(vec).0, vec![1, 2]);
+    }
+
+    #[test]
+    fn test_from_bytes_slice_lossy() {
+        let non_zero_bytes = b"1234x4r2ex";
+        assert_eq!(
+            NonZeroByteVec::from_bytes_slice_lossy(non_zero_bytes),
+            Cow::Borrowed(NonZeroByteSlice::new(non_zero_bytes).unwrap()),
+        );
+
+        let bytes_with_zero = b"\x00123x'1\x0023x\0";
+        assert_eq!(
+            NonZeroByteVec::from_bytes_slice_lossy(bytes_with_zero),
+            Cow::Owned(NonZeroByteVec::from_bytes_remove_nul(
+                bytes_with_zero.to_vec()
+            )),
+        );
     }
 }

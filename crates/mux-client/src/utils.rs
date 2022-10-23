@@ -1,6 +1,8 @@
-use super::Result;
-use serde::{Serialize, Serializer};
 use std::convert::TryInto;
+
+use serde::{Serialize, Serializer};
+
+use super::{NonZeroByteSlice, Result};
 
 /// Serialize one `u32` as ssh_format.
 pub(crate) fn serialize_u32(int: u32) -> [u8; 4] {
@@ -44,5 +46,11 @@ impl<T> SliceExt for [T] {
 impl SliceExt for str {
     fn get_len_as_u32(&self) -> Result<u32> {
         self.as_bytes().get_len_as_u32()
+    }
+}
+
+impl SliceExt for NonZeroByteSlice {
+    fn get_len_as_u32(&self) -> Result<u32> {
+        self.into_inner().get_len_as_u32()
     }
 }

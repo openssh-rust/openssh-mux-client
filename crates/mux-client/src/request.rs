@@ -1,9 +1,10 @@
 #![forbid(unsafe_code)]
 
-use super::{constants, default_config, utils::MaybeOwned, NonZeroByteSlice};
+use super::{constants, default_config, utils::MaybeOwned, NonZeroByteSlice, NonZeroByteVec};
 
 use std::{borrow::Cow, path::Path};
 
+use cfg_if::cfg_if;
 use serde::{Serialize, Serializer};
 use typed_builder::TypedBuilder;
 
@@ -186,13 +187,49 @@ impl<'a> Serialize for Fwd<'a> {
     }
 }
 
+trait PathExt {
+    fn to_non_null_bytes(&self) -> Cow<'_, NonZeroByteSlice>;
+
+    fn to_bytes(&self) -> Cow<'_, [u8]>;
+
+    fn to_string_lossy_and_as_bytes(&self) -> Cow<'_, [u8]>;
+}
+
+impl PathExt for Path {
+    fn to_non_null_bytes(&self) -> Cow<'_, NonZeroByteSlice> {
+        match self.to_bytes() {
+            Cow::Borrowed(slice) => NonZeroByteVec::from_bytes_slice_lossy(slice),
+            Cow::Owned(bytes) => Cow::Owned(NonZeroByteVec::from_bytes_remove_nul(bytes)),
+        }
+    }
+
+    fn to_bytes(&self) -> Cow<'_, [u8]> {
+        cfg_if! {
+            if #[cfg(unix)] {
+                use std::os::unix::ffi::OsStrExt;
+
+                Cow::Borrowed(self.as_os_str().as_bytes())
+            } else {
+                self.to_string_lossy_and_as_bytes()
+            }
+        }
+    }
+
+    fn to_string_lossy_and_as_bytes(&self) -> Cow<'_, [u8]> {
+        match self.to_string_lossy() {
+            Cow::Borrowed(s) => Cow::Borrowed(s.as_bytes()),
+            Cow::Owned(s) => Cow::Owned(s.into_bytes()),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Socket<'a> {
     UnixSocket { path: Cow<'a, Path> },
     TcpSocket { port: u32, host: Cow<'a, str> },
 }
 impl Socket<'_> {
-    pub(crate) fn as_serializable(&self) -> (Cow<'_, str>, u32) {
+    pub(crate) fn as_serializable(&self) -> (Cow<'_, NonZeroByteSlice>, u32) {
         use Socket::*;
 
         let unix_socket_port: i32 = -2;
@@ -201,8 +238,11 @@ impl Socket<'_> {
             // Serialize impl for Path calls to_str and ret err if failed,
             // so calling to_string_lossy is OK as it does not break backward
             // compatibility.
-            UnixSocket { path } => (path.to_string_lossy(), unix_socket_port as u32),
-            TcpSocket { port, host } => (Cow::Borrowed(host), *port),
+            UnixSocket { path } => (path.to_non_null_bytes(), unix_socket_port as u32),
+            TcpSocket { port, host } => (
+                NonZeroByteVec::from_bytes_slice_lossy(host.as_bytes()),
+                *port,
+            ),
         }
     }
 }
