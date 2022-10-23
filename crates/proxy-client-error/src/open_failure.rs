@@ -45,6 +45,7 @@ impl fmt::Display for ErrMsg {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[non_exhaustive]
 pub enum ErrorCode {
     AdministrativelyProhibited,
     ConnectFailed,
