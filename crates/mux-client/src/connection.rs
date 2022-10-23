@@ -361,10 +361,10 @@ impl Connection {
             IoSlice::new(&serialized_header),
             IoSlice::new(&self.serializer.output),
             IoSlice::new(&serialized_listen_addr_len),
-            IoSlice::new(listen_addr.as_bytes()),
+            IoSlice::new(listen_addr.into_inner()),
             IoSlice::new(&serialized_listen_port),
             IoSlice::new(&serialized_connect_addr_len),
-            IoSlice::new(connect_addr.as_bytes()),
+            IoSlice::new(connect_addr.into_inner()),
             IoSlice::new(&serialized_connect_port),
         ];
 
