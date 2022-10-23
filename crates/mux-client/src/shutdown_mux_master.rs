@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use crate::{constants, request::Request, Error, Response, Result};
+use crate::{constants, request::Request, Error, ErrorExt, Response, Result};
 
 use std::{io::Read, io::Write, os::unix::net::UnixStream, path::Path};
 
@@ -76,10 +76,7 @@ impl Connection {
                 Ok(self)
             }
         } else {
-            Err(Error::InvalidServerResponse(
-                "Expected Hello message",
-                response,
-            ))
+            Err(Error::invalid_server_response(&"Hello message", &response))
         }
     }
 
@@ -121,9 +118,9 @@ impl Connection {
                 Self::check_response_id(request_id, response_id)?;
                 Err(Error::RequestFailure(reason))
             }
-            response => Err(Error::InvalidServerResponse(
-                "Expected Response: Ok, PermissionDenied or Failure",
-                response,
+            response => Err(Error::invalid_server_response(
+                &"Ok, PermissionDenied or Failure",
+                &response,
             )),
         }
     }

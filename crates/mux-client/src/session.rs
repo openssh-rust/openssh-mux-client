@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use super::{Connection, Error, Response, Result};
+use super::{Connection, Error, ErrorExt, Response, Result};
 
 use std::io::ErrorKind;
 
@@ -52,9 +52,9 @@ impl EstablishedSession {
                 self.check_session_id(session_id)?;
                 Result::Ok(EstablishedSessionState::Exited(Some(exit_value)))
             }
-            response => Err(Error::InvalidServerResponse(
-                "Expected Response TtyAllocFail or ExitMessage",
-                response,
+            response => Err(Error::invalid_server_response(
+                &"TtyAllocFail or ExitMessage",
+                &response,
             )),
         }
     }
