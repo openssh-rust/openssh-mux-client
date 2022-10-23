@@ -15,11 +15,13 @@ use serde::Serialize;
 pub struct NonZeroByteSlice([u8]);
 
 impl NonZeroByteSlice {
-    pub fn new(bytes: &[u8]) -> Option<&Self> {
-        for byte in bytes {
-            if *byte == 0 {
+    pub const fn new(bytes: &[u8]) -> Option<&Self> {
+        let mut i = 0;
+        while i < bytes.len() {
+            if bytes[i] == 0 {
                 return None;
             }
+            i += 1;
         }
 
         // safety: bytes does not contain 0
