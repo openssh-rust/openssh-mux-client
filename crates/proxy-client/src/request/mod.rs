@@ -7,9 +7,6 @@ use super::Error;
 mod channel;
 pub(crate) use channel::*;
 
-mod port_forwarding;
-pub(crate) use port_forwarding::*;
-
 #[derive(Copy, Clone, Debug, Serialize)]
 pub(crate) struct Request<T> {
     /// Must be 0

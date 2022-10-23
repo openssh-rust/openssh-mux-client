@@ -1,6 +1,6 @@
 # openssh-proxy-client
 
-[![Rust](https://github.com/openssh-rust/openssh-mux-client/actions/workflows/rust.yml/badge.svg)](https://github.com/openssh-rust/openssh-mux-client/actions/workflows/rust.yml)
+[![Rust](https://github.com/openssh-rust/openssh-proxy-client/actions/workflows/rust.yml/badge.svg)](https://github.com/openssh-rust/openssh-proxy-client/actions/workflows/rust.yml)
 
 [![crate.io downloads](https://img.shields.io/crates/d/openssh-proxy-client)](https://crates.io/crates/openssh-proxy-client)
 
@@ -14,6 +14,19 @@ The crate is built upon [official document on ssh multiplex protocol][protocol d
 and [SSH Connection Protocol].
 
 It is currently still in early stage.
+
+Planned features to support:
+ - Execute command/subsystem on remote
+
+Features not planned:
+ - Local forwarding
+ - Remote forwarding
+ - Open new terminal on remote
+
+The first two are not planned since doing forwarding in the proxy client incurs
+extra overhead than letting the ssh multiplex master do the forwarding.
+
+The third one is not planned because so far nobody requests that feature.
 
 ## Development
 
