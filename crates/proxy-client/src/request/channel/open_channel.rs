@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use super::Request;
-use crate::{constants::*, IpAddr};
+use crate::constants::*;
 
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct OpenChannel<T> {

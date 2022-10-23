@@ -2,7 +2,7 @@ use bytes::Bytes;
 use compact_str::CompactString;
 use serde::Deserialize;
 
-use crate::{Error, IpAddr};
+use crate::Error;
 
 mod exit_status;
 pub(crate) use exit_status::*;
@@ -40,17 +40,4 @@ impl ChannelOpen {
     pub(super) fn from_bytes(bytes: Bytes) -> Result<(Self, Bytes), Error> {
         from_bytes_with_data(&bytes)
     }
-}
-
-/// This is to be used with `ChannelOpen`.
-/// remote port forwarding
-#[derive(Clone, Debug, Deserialize)]
-pub(crate) struct ForwardedTcpIp<'a> {
-    /// The socket that is remote forwarded
-    #[serde(borrow)]
-    pub(crate) connected_addr: IpAddr<'a>,
-    /// The socket that connects to the remote forwarded
-    /// connected_addr.
-    #[serde(borrow)]
-    pub(crate) originator_addr: IpAddr<'a>,
 }
