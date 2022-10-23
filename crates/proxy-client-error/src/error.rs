@@ -4,6 +4,7 @@ use thiserror::Error as ThisError;
 use crate::{OpenFailure, SshFormatError};
 
 #[derive(Debug, ThisError)]
+#[non_exhaustive]
 pub enum Error {
     /// IO Error (Excluding `io::ErrorKind::EWOULDBLOCK`).
     #[error("IO Error: {0}.")]
