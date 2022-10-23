@@ -1,6 +1,8 @@
 #[cfg(not(unix))]
 compile_error!("This crate can only be used on unix");
 
+pub use non_zero_byte_slice::*;
+
 pub use error::Error;
 pub use openssh_mux_client_error as error;
 pub type Result<T, Err = Error> = std::result::Result<T, Err>;
@@ -15,26 +17,26 @@ impl ErrorExt for Error {
     }
 }
 
-mod connection;
-mod constants;
-mod request;
-mod response;
-mod session;
-mod shutdown_mux_master;
-mod utils;
-
 pub mod default_config;
 
-pub use non_zero_byte_slice::*;
-
-pub use request::{Session, Socket};
-pub use response::Response;
-
-pub use session::*;
-
+mod connection;
 pub use connection::*;
 
+mod constants;
+
+mod request;
+pub use request::{Session, Socket};
+
+mod response;
+pub use response::Response;
+
+mod session;
+pub use session::*;
+
+mod shutdown_mux_master;
 pub use shutdown_mux_master::shutdown_mux_master;
+
+mod utils;
 
 #[cfg(test)]
 #[macro_use]
