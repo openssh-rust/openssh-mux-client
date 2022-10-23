@@ -1,6 +1,6 @@
 # openssh-proxy-client
 
-[![Rust](https://github.com/openssh-rust/openssh-mux-client/actions/workflows/rust.yml/badge.svg)](https://github.com/openssh-rust/openssh-mux-client/actions/workflows/rust.yml)
+[![Rust](https://github.com/openssh-rust/openssh-proxy-client/actions/workflows/rust.yml/badge.svg)](https://github.com/openssh-rust/openssh-proxy-client/actions/workflows/rust.yml)
 
 [![crate.io downloads](https://img.shields.io/crates/d/openssh-proxy-client)](https://crates.io/crates/openssh-proxy-client)
 
