@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use compact_str::CompactString;
 use serde::{de::Deserializer, Deserialize};
 
-use super::ErrMsg;
+use crate::error::ErrMsg;
 
 #[derive(Copy, Clone, Debug, Deserialize)]
 #[repr(transparent)]

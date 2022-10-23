@@ -3,5 +3,6 @@ members = [
     "crates/mux-client",
     "crates/mux-client-error",
     "crates/proxy-client",
+    "crates/proxy-client-error",
     "crates/non-zero-byte-slice"
 ]

@@ -4,9 +4,6 @@ use serde::Deserialize;
 
 use crate::{Error, IpAddr};
 
-pub(crate) mod error;
-pub use error::*;
-
 mod exit_status;
 pub(crate) use exit_status::*;
 
