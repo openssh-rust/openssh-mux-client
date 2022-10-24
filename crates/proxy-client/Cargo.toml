@@ -14,6 +14,7 @@ categories = ["asynchronous", "network-programming", "api-bindings"]
 
 [dependencies]
 openssh-proxy-client-error = { version = "0.1", path = "../proxy-client-error" }
+hash_hasher = "2.0.3"
 bytes = { version = "1.2.1", features = ["serde"] }
 compact_str = { version = "0.6.1", features = ["serde"] }
 concurrent_arena = "0.1.7"
