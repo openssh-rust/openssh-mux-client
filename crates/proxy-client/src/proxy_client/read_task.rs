@@ -14,7 +14,7 @@ use tokio_io_utility::read_to_bytes_rng;
 
 use crate::{
     proxy_client::{
-        channel::{MpscBytesChannel, OpenChannelRequestedInner, OpenChannelRes},
+        channel::{Completion, MpscBytesChannel, OpenChannelRequestedInner, OpenChannelRes},
         ChannelDataArenaArc, SharedData,
     },
     request::ChannelAdjustWindow,
@@ -22,14 +22,11 @@ use crate::{
     Error,
 };
 
-#[derive(Debug)]
-enum PendingRequests {
-    Pending {
-        pending: NonZeroUsize,
-        /// Has any request failed
-        has_failed: bool,
-    },
-    Done,
+#[derive(Debug, Default)]
+struct PendingRequests {
+    pending: Option<NonZeroUsize>,
+    /// Has any request failed
+    has_failed: bool,
 }
 
 #[derive(Debug)]
@@ -123,6 +120,54 @@ fn mark_eof(data: &mut ChannelIngoingData) {
     }
 }
 
+fn handle_request_response(
+    hashmap: &mut HashMap<u32, ChannelIngoingData>,
+    recipient_channel: u32,
+    success: bool,
+) -> Result<(), Error> {
+    let data = get_ingoing_data(hashmap, recipient_channel)?;
+
+    let pending = &mut data.pending_requests.pending;
+
+    if pending.is_none() {
+        // Retreive the latest information of pending requests
+
+        *pending = data
+            .outgoing_data_arena_arc
+            .pending_requests
+            .retrieve_pending_requests();
+
+        // Reset has_failed
+        data.pending_requests.has_failed = false;
+    }
+
+    *pending = NonZeroUsize::new(
+        pending
+            .as_mut()
+            .ok_or(Error::UnexpectedRequestResponse)?
+            .get()
+            - 1,
+    );
+
+    data.pending_requests.has_failed |= !success;
+
+    if pending.is_none() {
+        // All pending requests are done
+
+        let completion = if data.pending_requests.has_failed {
+            Completion::Failed
+        } else {
+            Completion::Success
+        };
+
+        data.outgoing_data_arena_arc
+            .pending_requests
+            .report_request_completion(completion);
+    }
+
+    Ok(())
+}
+
 pub(super) fn create_read_task<R>(rx: R, shared_data: SharedData) -> JoinHandle<Result<(), Error>>
 where
     R: AsyncRead + Send + 'static,
@@ -190,7 +235,8 @@ async fn create_read_task_inner(
                     outgoing_data_arena_arc,
                     receiver_win_size: init_receiver_win_size,
                     extend_window_size,
-                    pending_requests: PendingRequests::Done,
+
+                    pending_requests: Default::default(),
                 };
 
                 match ingoing_channel_map.entry(sender_channel) {
@@ -249,6 +295,14 @@ async fn create_read_task_inner(
                 &mut ingoing_channel_map,
                 recipient_channel,
             )?),
+
+            // Handle of responses to requests
+            ChannelResponse::RequestSuccess => {
+                handle_request_response(&mut ingoing_channel_map, recipient_channel, true)?
+            }
+            ChannelResponse::RequestFailure => {
+                handle_request_response(&mut ingoing_channel_map, recipient_channel, false)?
+            }
             _ => todo!(),
         }
     } else {
