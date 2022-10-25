@@ -71,46 +71,56 @@ where
             Response::ChannelResponse {
                 channel_response,
                 recipient_channel,
-            } => match channel_response {
-                ChannelResponse::OpenConfirmation(OpenConfirmation {
-                    sender_channel,
-                    init_win_size,
-                    max_packet_size,
-                }) => {
-                    let outgoing_data_arena_arc =
-                        shared_data
+            } => {
+                match channel_response {
+                    ChannelResponse::OpenConfirmation(OpenConfirmation {
+                        sender_channel,
+                        init_win_size,
+                        max_packet_size,
+                    }) => {
+                        let outgoing_data_arena_arc = shared_data
                             .get_channel_data(recipient_channel)
                             .ok_or(Error::InvalidRecipientChannel(recipient_channel))?;
 
-                    outgoing_data_arena_arc
-                        .sender_window_size
-                        .add(init_win_size.try_into().unwrap());
+                        outgoing_data_arena_arc
+                            .sender_window_size
+                            .add(init_win_size.try_into().unwrap());
 
-                    let OpenChannelRequestedInner {
-                        init_receiver_win_size,
-                        extend_window_size_packet,
-                    } = outgoing_data_arena_arc
-                        .state
-                        .set_channel_open_res(OpenChannelRes::Confirmed { max_packet_size })?;
+                        let OpenChannelRequestedInner {
+                            init_receiver_win_size,
+                            extend_window_size_packet,
+                        } = outgoing_data_arena_arc
+                            .state
+                            .set_channel_open_res(OpenChannelRes::Confirmed { max_packet_size })?;
 
-                    let ingoing_data = ChannelIngoingData {
-                        outgoing_data_arena_arc,
-                        receiver_win_size: init_receiver_win_size,
-                        extend_window_size_packet,
-                        pending_requests: PendingRequests::Done,
-                    };
+                        let ingoing_data = ChannelIngoingData {
+                            outgoing_data_arena_arc,
+                            receiver_win_size: init_receiver_win_size,
+                            extend_window_size_packet,
+                            pending_requests: PendingRequests::Done,
+                        };
 
-                    match ingoing_channel_map.entry(sender_channel) {
-                        Entry::Occupied(_) => {
-                            return Err(Error::DuplicateSenderChannel(sender_channel));
-                        }
-                        Entry::Vacant(entry) => {
-                            entry.insert(ingoing_data);
+                        match ingoing_channel_map.entry(sender_channel) {
+                            Entry::Occupied(_) => {
+                                return Err(Error::DuplicateSenderChannel(sender_channel));
+                            }
+                            Entry::Vacant(entry) => {
+                                entry.insert(ingoing_data);
+                            }
                         }
                     }
+                    ChannelResponse::OpenFailure(failure) => {
+                        let outgoing_data_arena_arc = shared_data
+                            .get_channel_data(recipient_channel)
+                            .ok_or(Error::InvalidRecipientChannel(recipient_channel))?;
+
+                        outgoing_data_arena_arc
+                            .state
+                            .set_channel_open_res(OpenChannelRes::Failed(failure))?;
+                    }
+                    _ => todo!(),
                 }
-                _ => todo!(),
-            },
+            }
             response => {
                 return Err(Error::UnexpectedChannelState {
                     expected_state: &"ChannelResponse",
