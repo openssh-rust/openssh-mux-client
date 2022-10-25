@@ -67,11 +67,12 @@ where
         // and the returned bytes contains``..(packet_len + 4)`.
         let response = Response::from_bytes(buffer.split_to(packet_len + 4).freeze().slice(4..))?;
 
-        match response {
-            Response::ChannelResponse {
-                channel_response,
-                recipient_channel,
-            } => match channel_response {
+        if let Response::ChannelResponse {
+            channel_response,
+            recipient_channel,
+        } = response
+        {
+            match channel_response {
                 ChannelResponse::OpenConfirmation(OpenConfirmation {
                     sender_channel,
                     init_win_size,
@@ -113,14 +114,17 @@ where
                         .state
                         .set_channel_open_res(OpenChannelRes::Failed(failure))?;
                 }
+                ChannelResponse::BytesAdjust { bytes_to_add } => shared_data
+                    .get_channel_data(recipient_channel)?
+                    .sender_window_size
+                    .add(bytes_to_add.try_into().unwrap()),
                 _ => todo!(),
-            },
-            response => {
-                return Err(Error::UnexpectedChannelState {
-                    expected_state: &"ChannelResponse",
-                    actual_state: response.into(),
-                })
             }
+        } else {
+            return Err(Error::UnexpectedChannelState {
+                expected_state: &"ChannelResponse",
+                actual_state: response.into(),
+            });
         }
 
         todo!()
