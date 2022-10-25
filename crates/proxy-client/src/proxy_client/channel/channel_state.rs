@@ -35,7 +35,7 @@ enum State {
     OpenChannelRequested(OpenChannelRequestedInner),
 
     OpenChannelRequestConfirmed {
-        max_sender_packet_size: u32,
+        max_packet_size: u32,
     },
 
     OpenChannelRequestFailed(OpenFailure),
@@ -51,7 +51,7 @@ enum State {
 pub(crate) enum OpenChannelRes {
     /// Ok and confirmed
     Confirmed {
-        max_sender_packet_size: u32,
+        max_packet_size: u32,
     },
     Failed(OpenFailure),
 }
@@ -112,11 +112,9 @@ impl ChannelState {
 
                         Poll::Pending
                     }
-                    State::OpenChannelRequestConfirmed {
-                        max_sender_packet_size,
-                    } => Poll::Ready(OpenChannelRes::Confirmed {
-                        max_sender_packet_size,
-                    }),
+                    State::OpenChannelRequestConfirmed { max_packet_size } => {
+                        Poll::Ready(OpenChannelRes::Confirmed { max_packet_size })
+                    }
                     State::OpenChannelRequestFailed(..) => {
                         let prev_state = mem::replace(&mut guard.state, State::Consumed);
 
@@ -199,11 +197,9 @@ impl ChannelState {
 
         if let State::OpenChannelRequested(inner) = guard.state {
             guard.state = match res {
-                OpenChannelRes::Confirmed {
-                    max_sender_packet_size,
-                } => State::OpenChannelRequestConfirmed {
-                    max_sender_packet_size,
-                },
+                OpenChannelRes::Confirmed { max_packet_size } => {
+                    State::OpenChannelRequestConfirmed { max_packet_size }
+                }
                 OpenChannelRes::Failed(err) => State::OpenChannelRequestFailed(err),
             };
 
