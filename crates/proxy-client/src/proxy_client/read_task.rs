@@ -1,6 +1,9 @@
 use std::{
-    collections::hash_map::Entry, convert::TryInto, num::NonZeroUsize, pin::Pin,
-    sync::atomic::Ordering::Relaxed,
+    collections::hash_map::Entry,
+    convert::TryInto,
+    num::NonZeroUsize,
+    pin::Pin,
+    sync::{atomic::Ordering::Relaxed, Arc},
 };
 
 use bytes::BytesMut;
@@ -11,7 +14,7 @@ use tokio_io_utility::read_to_bytes_rng;
 
 use crate::{
     proxy_client::{
-        channel::{OpenChannelRequestedInner, OpenChannelRes},
+        channel::{MpscBytesChannel, OpenChannelRequestedInner, OpenChannelRes},
         ChannelDataArenaArc, SharedData,
     },
     response::{ChannelResponse, OpenConfirmation, Response},
@@ -43,6 +46,10 @@ struct ChannelIngoingData {
     extend_window_size: u32,
 
     pending_requests: PendingRequests,
+
+    rx: Option<Arc<MpscBytesChannel>>,
+
+    stderr: Option<Arc<MpscBytesChannel>>,
 }
 
 fn get_ingoing_data(
@@ -110,6 +117,9 @@ where
                         .set_channel_open_res(OpenChannelRes::Confirmed { max_packet_size })?;
 
                     let ingoing_data = ChannelIngoingData {
+                        rx: outgoing_data_arena_arc.rx.clone(),
+                        stderr: outgoing_data_arena_arc.stderr.clone(),
+
                         outgoing_data_arena_arc,
                         receiver_win_size: init_receiver_win_size,
                         extend_window_size_packet,
@@ -145,9 +155,7 @@ where
 
                     let cnt: u32 = bytes.len().try_into().unwrap_or(u32::MAX);
 
-                    let outgoing_data = &*data.outgoing_data_arena_arc;
-
-                    if let Some(rx) = outgoing_data.rx.as_ref() {
+                    if let Some(rx) = data.rx.as_ref() {
                         rx.push_bytes(bytes);
                     }
 
@@ -157,7 +165,9 @@ where
 
                     // Extend receiver window if it is 0 and there are still
                     // active receivers
-                    if *receiver_win_size == 0 && outgoing_data.receivers_count.load(Relaxed) != 0 {
+                    if *receiver_win_size == 0
+                        && data.outgoing_data_arena_arc.receivers_count.load(Relaxed) != 0
+                    {
                         let start = buffer.len();
                         buffer.extend_from_slice(&data.extend_window_size_packet);
 
