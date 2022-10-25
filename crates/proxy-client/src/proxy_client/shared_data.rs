@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use super::channel::{ChannelData, MpscBytesChannel};
+use crate::{
+    proxy_client::channel::{ChannelData, MpscBytesChannel},
+    Error,
+};
 
 const LEN: usize = 64;
 const BITARRAY_LEN: usize = LEN / (usize::BITS as usize);
@@ -20,12 +23,18 @@ impl SharedData {
         self.0.channel_data_arena.insert(channel_data)
     }
 
-    pub(super) fn remove_channel_data(&self, slot: u32) -> Option<ChannelDataArenaArc> {
-        self.0.channel_data_arena.remove(slot)
+    pub(super) fn remove_channel_data(&self, slot: u32) -> Result<ChannelDataArenaArc, Error> {
+        self.0
+            .channel_data_arena
+            .remove(slot)
+            .ok_or(Error::InvalidRecipientChannel(slot))
     }
 
-    pub(super) fn get_channel_data(&self, slot: u32) -> Option<ChannelDataArenaArc> {
-        self.0.channel_data_arena.get(slot)
+    pub(super) fn get_channel_data(&self, slot: u32) -> Result<ChannelDataArenaArc, Error> {
+        self.0
+            .channel_data_arena
+            .get(slot)
+            .ok_or(Error::InvalidRecipientChannel(slot))
     }
 }
 
