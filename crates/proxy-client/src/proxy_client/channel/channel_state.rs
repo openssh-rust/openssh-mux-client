@@ -81,17 +81,26 @@ pub(crate) struct OpenChannelRequestedInner {
     /// into a `BytesMut` and then `.split().freeze()` it on demands
     /// to reduce fragmentation.
     pub(crate) extend_window_size_packet: [u8; 14],
+
+    /// The number of bytes `extend_window_size_packet` will extend
+    /// the receiver window size.
+    pub(crate) extend_window_size: u32,
 }
 
 /// For the channel users
 impl ChannelState {
     /// * `extend_window_size_packet` - The packet to sent to expend window size.
     ///   It should have all the data required.
-    pub(crate) fn new(init_receiver_win_size: u32, extend_window_size_packet: [u8; 14]) -> Self {
+    pub(crate) fn new(
+        init_receiver_win_size: u32,
+        extend_window_size_packet: [u8; 14],
+        extend_window_size: u32,
+    ) -> Self {
         Self(Mutex::new(Inner {
             state: State::OpenChannelRequested(OpenChannelRequestedInner {
                 init_receiver_win_size,
                 extend_window_size_packet,
+                extend_window_size,
             }),
             waker: None,
         }))
