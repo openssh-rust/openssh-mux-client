@@ -6,7 +6,7 @@ use std::{
     sync::{atomic::Ordering::Relaxed, Arc},
 };
 
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use hash_hasher::HashedMap as HashMap;
 use ssh_format::from_bytes;
 use tokio::{io::AsyncRead, pin, spawn, task::JoinHandle};
@@ -17,7 +17,7 @@ use crate::{
         channel::{MpscBytesChannel, OpenChannelRequestedInner, OpenChannelRes},
         ChannelDataArenaArc, SharedData,
     },
-    response::{ChannelResponse, OpenConfirmation, Response},
+    response::{ChannelResponse, ExtendedDataType, OpenConfirmation, Response},
     Error,
 };
 
@@ -59,6 +59,53 @@ fn get_ingoing_data(
     hashmap
         .get_mut(&channel_id)
         .ok_or(Error::InvalidSenderChannel(channel_id))
+}
+
+/// If `is_rx` then `bytes` will be pushed to `rx`.
+/// Otherwise it will be pushed to `stderr`.
+fn handle_incoming_data(
+    hashmap: &mut HashMap<u32, ChannelIngoingData>,
+    recipient_channel: u32,
+    bytes: Bytes,
+    buffer: &mut BytesMut,
+    shared_data: &SharedData,
+    is_rx: bool,
+) -> Result<(), Error> {
+    let data = get_ingoing_data(hashmap, recipient_channel)?;
+
+    let cnt: u32 = bytes.len().try_into().unwrap_or(u32::MAX);
+
+    let data_receiver_channel = if is_rx {
+        data.rx.as_ref()
+    } else {
+        data.stderr.as_ref()
+    };
+
+    if let Some(channel) = data_receiver_channel {
+        channel.push_bytes(bytes);
+    }
+
+    let receiver_win_size = &mut data.receiver_win_size;
+
+    *receiver_win_size = receiver_win_size.saturating_sub(cnt);
+
+    // Extend receiver window if it is 0 and there are still
+    // active receivers
+    if *receiver_win_size == 0 && data.outgoing_data_arena_arc.receivers_count.load(Relaxed) != 0 {
+        let start = buffer.len();
+        buffer.extend_from_slice(&data.extend_window_size_packet);
+
+        // After this op, buffer contains [0, start) which
+        // contains the same content before extend_from_slice
+        // and bytes contains `start..`
+        let bytes = buffer.split_off(start).freeze();
+
+        shared_data.get_write_channel().push_bytes(bytes);
+
+        *receiver_win_size = data.extend_window_size;
+    }
+
+    Ok(())
 }
 
 pub(super) fn create_read_task<R>(rx: R, shared_data: SharedData) -> JoinHandle<Result<(), Error>>
@@ -150,35 +197,24 @@ where
                         .sender_window_size
                         .add(bytes_to_add.try_into().unwrap())
                 }
-                ChannelResponse::Data(bytes) => {
-                    let data = get_ingoing_data(&mut ingoing_channel_map, recipient_channel)?;
-
-                    let cnt: u32 = bytes.len().try_into().unwrap_or(u32::MAX);
-
-                    if let Some(rx) = data.rx.as_ref() {
-                        rx.push_bytes(bytes);
-                    }
-
-                    let receiver_win_size = &mut data.receiver_win_size;
-
-                    *receiver_win_size = receiver_win_size.saturating_sub(cnt);
-
-                    // Extend receiver window if it is 0 and there are still
-                    // active receivers
-                    if *receiver_win_size == 0
-                        && data.outgoing_data_arena_arc.receivers_count.load(Relaxed) != 0
-                    {
-                        let start = buffer.len();
-                        buffer.extend_from_slice(&data.extend_window_size_packet);
-
-                        // After this op, buffer contains [0, start) which
-                        // contains the same content before extend_from_slice
-                        // and bytes contains `start..`
-                        let bytes = buffer.split_off(start).freeze();
-
-                        shared_data.get_write_channel().push_bytes(bytes);
-
-                        *receiver_win_size = data.extend_window_size;
+                ChannelResponse::Data(bytes) => handle_incoming_data(
+                    &mut ingoing_channel_map,
+                    recipient_channel,
+                    bytes,
+                    &mut buffer,
+                    &shared_data,
+                    true,
+                )?,
+                ChannelResponse::ExtendedData { data_type, data } => {
+                    if let ExtendedDataType::Stderr = data_type {
+                        handle_incoming_data(
+                            &mut ingoing_channel_map,
+                            recipient_channel,
+                            data,
+                            &mut buffer,
+                            &shared_data,
+                            false,
+                        )?
                     }
                 }
                 _ => todo!(),
