@@ -43,6 +43,10 @@ pub enum Error {
     /// Received duplicate sender channel id from sshd
     #[error("Received duplicate sender channel id {0} from sshd")]
     DuplicateSenderChannel(u32),
+
+    /// Receive unexpected response for channel request
+    #[error("Receive unexpected response for channel request")]
+    UnexpectedRequestResponse,
 }
 
 impl From<Error> for io::Error {
