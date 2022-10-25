@@ -82,6 +82,7 @@ where
         } = response
         {
             match channel_response {
+                // Handle response to open channel request
                 ChannelResponse::OpenConfirmation(OpenConfirmation {
                     sender_channel,
                     init_win_size,
@@ -123,10 +124,14 @@ where
                         .state
                         .set_channel_open_res(OpenChannelRes::Failed(failure))?;
                 }
-                ChannelResponse::BytesAdjust { bytes_to_add } => shared_data
-                    .get_channel_data(recipient_channel)?
-                    .sender_window_size
-                    .add(bytes_to_add.try_into().unwrap()),
+
+                // Handle data related responses
+                ChannelResponse::BytesAdjust { bytes_to_add } => {
+                    get_ingoing_data(&mut ingoing_channel_map, recipient_channel)?
+                        .outgoing_data_arena_arc
+                        .sender_window_size
+                        .add(bytes_to_add.try_into().unwrap())
+                }
                 ChannelResponse::Data(bytes) => {
                     let data = get_ingoing_data(&mut ingoing_channel_map, recipient_channel)?;
 
