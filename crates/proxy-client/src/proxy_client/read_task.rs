@@ -17,6 +17,7 @@ use crate::{
         channel::{MpscBytesChannel, OpenChannelRequestedInner, OpenChannelRes},
         ChannelDataArenaArc, SharedData,
     },
+    request::ChannelAdjustWindow,
     response::{ChannelResponse, ExtendedDataType, OpenConfirmation, Response},
     Error,
 };
@@ -38,9 +39,6 @@ struct ChannelIngoingData {
     /// Once this get into zero and `outgoing_data.receivers_count != 0`,
     /// then read task should send `extend_window_size_packet`.
     receiver_win_size: u32,
-
-    /// Check [`super::channel::ChannelState::extend_window_size_packet`] for doc.
-    extend_window_size_packet: [u8; 14],
 
     /// Check [`super::channel::ChannelState::extend_window_size`] for doc.
     extend_window_size: u32,
@@ -89,11 +87,19 @@ fn handle_incoming_data(
 
     *receiver_win_size = receiver_win_size.saturating_sub(cnt);
 
+    let outgoing_data = &data.outgoing_data_arena_arc;
+
     // Extend receiver window if it is 0 and there are still
     // active receivers
-    if *receiver_win_size == 0 && data.outgoing_data_arena_arc.receivers_count.load(Relaxed) != 0 {
+    if *receiver_win_size == 0 && outgoing_data.receivers_count.load(Relaxed) != 0 {
         let start = buffer.len();
-        buffer.extend_from_slice(&data.extend_window_size_packet);
+
+        ChannelAdjustWindow::new(
+            ChannelDataArenaArc::slot(outgoing_data),
+            data.extend_window_size,
+        )
+        .serialize_with_header(buffer, 0)
+        .unwrap();
 
         // After this op, buffer contains [0, start) which
         // contains the same content before extend_from_slice
@@ -157,7 +163,6 @@ where
 
                     let OpenChannelRequestedInner {
                         init_receiver_win_size,
-                        extend_window_size_packet,
                         extend_window_size,
                     } = outgoing_data_arena_arc
                         .state
@@ -169,7 +174,6 @@ where
 
                         outgoing_data_arena_arc,
                         receiver_win_size: init_receiver_win_size,
-                        extend_window_size_packet,
                         extend_window_size,
                         pending_requests: PendingRequests::Done,
                     };
