@@ -26,11 +26,10 @@ pub enum Error {
     ChannelOpenFailure(#[from] OpenFailure),
 
     /// Unexpected channel state
-    #[error("Expected {expected_state} but actual state is {actual_state}: {msg}")]
+    #[error("Expected {expected_state} but actual state is {actual_state}")]
     UnexpectedChannelState {
         expected_state: &'static &'static str,
         actual_state: &'static str,
-        msg: &'static &'static str,
     },
 }
 
