@@ -10,7 +10,7 @@ use crate::{request::ChannelClose, Error};
 
 mod channel_state;
 pub(super) use channel_state::{
-    ChannelState, OpenChannelRequestedInner, OpenChennelRes, ProcessStatus,
+    ChannelState, OpenChannelRequestedInner, OpenChannelRes, ProcessStatus,
 };
 
 mod mpsc_bytes_channel;

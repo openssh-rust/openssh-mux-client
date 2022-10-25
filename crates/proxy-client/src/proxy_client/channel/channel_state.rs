@@ -48,7 +48,7 @@ enum State {
 }
 
 #[derive(Debug)]
-pub(crate) enum OpenChennelRes {
+pub(crate) enum OpenChannelRes {
     /// Ok and confirmed
     Confirmed {
         max_sender_packet_size: u32,
@@ -97,11 +97,11 @@ impl ChannelState {
         }))
     }
 
-    pub(crate) fn wait_for_confirmation(&self) -> impl Future<Output = OpenChennelRes> + '_ {
+    pub(crate) fn wait_for_confirmation(&self) -> impl Future<Output = OpenChannelRes> + '_ {
         struct WaitForConfirmation<'a>(&'a ChannelState);
 
         impl Future for WaitForConfirmation<'_> {
-            type Output = OpenChennelRes;
+            type Output = OpenChannelRes;
 
             fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 let mut guard = self.0 .0.lock().unwrap();
@@ -114,7 +114,7 @@ impl ChannelState {
                     }
                     State::OpenChannelRequestConfirmed {
                         max_sender_packet_size,
-                    } => Poll::Ready(OpenChennelRes::Confirmed {
+                    } => Poll::Ready(OpenChannelRes::Confirmed {
                         max_sender_packet_size,
                     }),
                     State::OpenChannelRequestFailed(..) => {
@@ -124,7 +124,7 @@ impl ChannelState {
                         drop(guard);
 
                         if let State::OpenChannelRequestFailed(err) = prev_state {
-                            Poll::Ready(OpenChennelRes::Failed(err))
+                            Poll::Ready(OpenChannelRes::Failed(err))
                         } else {
                             unreachable!()
                         }
@@ -138,7 +138,7 @@ impl ChannelState {
     }
 
     /// Must be called after `wait_for_confirmation` returns
-    /// `OpenChennelRes::Confirmed`
+    /// `OpenChannelRes::Confirmed`
     pub(crate) fn wait_for_process_exit(&self) -> impl Future<Output = ProcessStatus> + '_ {
         struct WaitForProcessExit<'a>(&'a ChannelState);
 
@@ -193,18 +193,18 @@ impl ChannelState {
     /// Must be only called once by the channel read task.
     pub(crate) fn set_channel_open_res(
         &self,
-        res: OpenChennelRes,
+        res: OpenChannelRes,
     ) -> Result<OpenChannelRequestedInner, Error> {
         let mut guard = self.0.lock().unwrap();
 
         if let State::OpenChannelRequested(inner) = guard.state {
             guard.state = match res {
-                OpenChennelRes::Confirmed {
+                OpenChannelRes::Confirmed {
                     max_sender_packet_size,
                 } => State::OpenChannelRequestConfirmed {
                     max_sender_packet_size,
                 },
-                OpenChennelRes::Failed(err) => State::OpenChannelRequestFailed(err),
+                OpenChannelRes::Failed(err) => State::OpenChannelRequestFailed(err),
             };
 
             Self::wakeup(guard);
