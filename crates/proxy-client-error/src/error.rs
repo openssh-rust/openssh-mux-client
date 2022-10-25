@@ -35,6 +35,10 @@ pub enum Error {
     /// Invalid recipient channel id
     #[error("Invalid recipient channel id {0}")]
     InvalidRecipientChannel(u32),
+
+    /// Received duplicate sender channel id from sshd
+    #[error("Received duplicate sender channel id {0} from sshd")]
+    DuplicateSenderChannel(u32),
 }
 
 impl From<Error> for io::Error {
