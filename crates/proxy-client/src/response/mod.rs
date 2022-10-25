@@ -1,5 +1,3 @@
-use std::num::NonZeroU32;
-
 use bytes::Bytes;
 use serde::Deserialize;
 
@@ -24,7 +22,7 @@ pub(crate) enum Response {
 
     GlobalRequestSuccess {
         /// Response of global remote-forwarding request.
-        port: Option<NonZeroU32>,
+        port: Option<u32>,
     },
 
     ChannelResponse {
