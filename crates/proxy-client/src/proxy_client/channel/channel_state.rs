@@ -214,7 +214,6 @@ impl ChannelState {
             Err(Error::UnexpectedChannelState {
                 expected_state: &"OpenChannelRequested",
                 actual_state: (&guard.state).into(),
-                msg: &"Received open channel request response",
             })
         }
     }
@@ -236,7 +235,6 @@ impl ChannelState {
             Err(Error::UnexpectedChannelState {
                 expected_state: &"OpenChannelRequestConfirmed",
                 actual_state: (&guard.state).into(),
-                msg: &"Received process exit status",
             })
         }
     }
