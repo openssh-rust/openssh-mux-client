@@ -39,6 +39,15 @@ struct ChannelIngoingData {
     pending_requests: PendingRequests,
 }
 
+fn get_ingoing_data(
+    hashmap: &mut HashMap<u32, ChannelIngoingData>,
+    channel_id: u32,
+) -> Result<&mut ChannelIngoingData, Error> {
+    hashmap
+        .get_mut(&channel_id)
+        .ok_or(Error::InvalidSenderChannel(channel_id))
+}
+
 pub(super) fn create_read_task<R>(rx: R, shared_data: SharedData) -> JoinHandle<Result<(), Error>>
 where
     R: AsyncRead + Send + 'static,
@@ -118,6 +127,31 @@ where
                     .get_channel_data(recipient_channel)?
                     .sender_window_size
                     .add(bytes_to_add.try_into().unwrap()),
+                ChannelResponse::Data(bytes) => {
+                    let data = get_ingoing_data(&mut ingoing_channel_map, recipient_channel)?;
+
+                    let cnt: u32 = bytes.len().try_into().unwrap_or(u32::MAX);
+
+                    if let Some(rx) = data.outgoing_data_arena_arc.rx.as_ref() {
+                        rx.push_bytes(bytes);
+                    }
+
+                    let receiver_win_size = &mut data.receiver_win_size;
+
+                    *receiver_win_size = receiver_win_size.saturating_sub(cnt);
+                    if *receiver_win_size == 0 {
+                        let start = buffer.len();
+                        buffer.extend_from_slice(&data.extend_window_size_packet);
+
+                        // After this op, buffer contains [0, start) and bytes
+                        // contains `start..`
+                        let bytes = buffer.split_off(start).freeze();
+
+                        shared_data.get_write_channel().push_bytes(bytes);
+                    }
+
+                    todo!()
+                }
                 _ => todo!(),
             }
         } else {
