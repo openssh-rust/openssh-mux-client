@@ -1,5 +1,6 @@
 use bytes::Bytes;
 use serde::Deserialize;
+use strum::IntoStaticStr;
 
 use crate::{
     constants::*,
@@ -16,7 +17,7 @@ where
 mod channel;
 pub(crate) use channel::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, IntoStaticStr)]
 pub(crate) enum Response {
     GlobalRequestFailure,
 
