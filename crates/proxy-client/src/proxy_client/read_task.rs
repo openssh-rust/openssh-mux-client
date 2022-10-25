@@ -118,124 +118,123 @@ pub(super) fn create_read_task<R>(rx: R, shared_data: SharedData) -> JoinHandle<
 where
     R: AsyncRead + Send + 'static,
 {
-    async fn inner(
-        mut rx: Pin<&mut (dyn AsyncRead + Send)>,
-        shared_data: SharedData,
-    ) -> Result<(), Error> {
-        let mut buffer = BytesMut::with_capacity(1024);
-        let mut ingoing_channel_map: HashMap<u32, ChannelIngoingData> = HashMap::default();
-
-        read_to_bytes_rng(&mut rx, &mut buffer, 4..).await?;
-
-        let packet_len: u32 = from_bytes(&buffer[..4])?.0;
-        let packet_len: usize = packet_len.try_into().unwrap();
-
-        // Excluding the header (`u32`)
-        let packet_bytes_read = buffer.len() - 4;
-
-        if packet_bytes_read < packet_len {
-            read_to_bytes_rng(&mut rx, &mut buffer, (packet_len - packet_bytes_read)..).await?;
-        }
-
-        // Split until (packet_len + 4).
-        // Afterwards, buffer would contain `(packet_len + 4)..`,
-        // and the returned bytes contains``..(packet_len + 4)`.
-        let response = Response::from_bytes(buffer.split_to(packet_len + 4).freeze().slice(4..))?;
-
-        if let Response::ChannelResponse {
-            channel_response,
-            recipient_channel,
-        } = response
-        {
-            match channel_response {
-                // Handle response to open channel request
-                ChannelResponse::OpenConfirmation(OpenConfirmation {
-                    sender_channel,
-                    init_win_size,
-                    max_packet_size,
-                }) => {
-                    let outgoing_data_arena_arc =
-                        shared_data.get_channel_data(recipient_channel)?;
-
-                    outgoing_data_arena_arc
-                        .sender_window_size
-                        .add(init_win_size.try_into().unwrap());
-
-                    let OpenChannelRequestedInner {
-                        init_receiver_win_size,
-                        extend_window_size,
-                    } = outgoing_data_arena_arc
-                        .state
-                        .set_channel_open_res(OpenChannelRes::Confirmed { max_packet_size })?;
-
-                    let ingoing_data = ChannelIngoingData {
-                        rx: outgoing_data_arena_arc.rx.clone(),
-                        stderr: outgoing_data_arena_arc.stderr.clone(),
-
-                        outgoing_data_arena_arc,
-                        receiver_win_size: init_receiver_win_size,
-                        extend_window_size,
-                        pending_requests: PendingRequests::Done,
-                    };
-
-                    match ingoing_channel_map.entry(sender_channel) {
-                        Entry::Occupied(_) => {
-                            return Err(Error::DuplicateSenderChannel(sender_channel));
-                        }
-                        Entry::Vacant(entry) => {
-                            entry.insert(ingoing_data);
-                        }
-                    }
-                }
-                ChannelResponse::OpenFailure(failure) => {
-                    shared_data
-                        .get_channel_data(recipient_channel)?
-                        .state
-                        .set_channel_open_res(OpenChannelRes::Failed(failure))?;
-                }
-
-                // Handle data related responses
-                ChannelResponse::BytesAdjust { bytes_to_add } => {
-                    get_ingoing_data(&mut ingoing_channel_map, recipient_channel)?
-                        .outgoing_data_arena_arc
-                        .sender_window_size
-                        .add(bytes_to_add.try_into().unwrap())
-                }
-                ChannelResponse::Data(bytes) => handle_incoming_data(
-                    &mut ingoing_channel_map,
-                    recipient_channel,
-                    bytes,
-                    &mut buffer,
-                    &shared_data,
-                    true,
-                )?,
-                ChannelResponse::ExtendedData { data_type, data } => {
-                    if let ExtendedDataType::Stderr = data_type {
-                        handle_incoming_data(
-                            &mut ingoing_channel_map,
-                            recipient_channel,
-                            data,
-                            &mut buffer,
-                            &shared_data,
-                            false,
-                        )?
-                    }
-                }
-                _ => todo!(),
-            }
-        } else {
-            return Err(Error::UnexpectedChannelState {
-                expected_state: &"ChannelResponse",
-                actual_state: response.into(),
-            });
-        }
-
-        todo!()
-    }
-
     spawn(async move {
         pin!(rx);
 
-        inner(rx, shared_data).await
+        create_read_task_inner(rx, shared_data).await
     })
+}
+
+async fn create_read_task_inner(
+    mut rx: Pin<&mut (dyn AsyncRead + Send)>,
+    shared_data: SharedData,
+) -> Result<(), Error> {
+    let mut buffer = BytesMut::with_capacity(1024);
+    let mut ingoing_channel_map: HashMap<u32, ChannelIngoingData> = HashMap::default();
+
+    read_to_bytes_rng(&mut rx, &mut buffer, 4..).await?;
+
+    let packet_len: u32 = from_bytes(&buffer[..4])?.0;
+    let packet_len: usize = packet_len.try_into().unwrap();
+
+    // Excluding the header (`u32`)
+    let packet_bytes_read = buffer.len() - 4;
+
+    if packet_bytes_read < packet_len {
+        read_to_bytes_rng(&mut rx, &mut buffer, (packet_len - packet_bytes_read)..).await?;
+    }
+
+    // Split until (packet_len + 4).
+    // Afterwards, buffer would contain `(packet_len + 4)..`,
+    // and the returned bytes contains``..(packet_len + 4)`.
+    let response = Response::from_bytes(buffer.split_to(packet_len + 4).freeze().slice(4..))?;
+
+    if let Response::ChannelResponse {
+        channel_response,
+        recipient_channel,
+    } = response
+    {
+        match channel_response {
+            // Handle response to open channel request
+            ChannelResponse::OpenConfirmation(OpenConfirmation {
+                sender_channel,
+                init_win_size,
+                max_packet_size,
+            }) => {
+                let outgoing_data_arena_arc = shared_data.get_channel_data(recipient_channel)?;
+
+                outgoing_data_arena_arc
+                    .sender_window_size
+                    .add(init_win_size.try_into().unwrap());
+
+                let OpenChannelRequestedInner {
+                    init_receiver_win_size,
+                    extend_window_size,
+                } = outgoing_data_arena_arc
+                    .state
+                    .set_channel_open_res(OpenChannelRes::Confirmed { max_packet_size })?;
+
+                let ingoing_data = ChannelIngoingData {
+                    rx: outgoing_data_arena_arc.rx.clone(),
+                    stderr: outgoing_data_arena_arc.stderr.clone(),
+
+                    outgoing_data_arena_arc,
+                    receiver_win_size: init_receiver_win_size,
+                    extend_window_size,
+                    pending_requests: PendingRequests::Done,
+                };
+
+                match ingoing_channel_map.entry(sender_channel) {
+                    Entry::Occupied(_) => {
+                        return Err(Error::DuplicateSenderChannel(sender_channel));
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(ingoing_data);
+                    }
+                }
+            }
+            ChannelResponse::OpenFailure(failure) => {
+                shared_data
+                    .get_channel_data(recipient_channel)?
+                    .state
+                    .set_channel_open_res(OpenChannelRes::Failed(failure))?;
+            }
+
+            // Handle data related responses
+            ChannelResponse::BytesAdjust { bytes_to_add } => {
+                get_ingoing_data(&mut ingoing_channel_map, recipient_channel)?
+                    .outgoing_data_arena_arc
+                    .sender_window_size
+                    .add(bytes_to_add.try_into().unwrap())
+            }
+            ChannelResponse::Data(bytes) => handle_incoming_data(
+                &mut ingoing_channel_map,
+                recipient_channel,
+                bytes,
+                &mut buffer,
+                &shared_data,
+                true,
+            )?,
+            ChannelResponse::ExtendedData { data_type, data } => {
+                if let ExtendedDataType::Stderr = data_type {
+                    handle_incoming_data(
+                        &mut ingoing_channel_map,
+                        recipient_channel,
+                        data,
+                        &mut buffer,
+                        &shared_data,
+                        false,
+                    )?
+                }
+            }
+            _ => todo!(),
+        }
+    } else {
+        return Err(Error::UnexpectedChannelState {
+            expected_state: &"ChannelResponse",
+            actual_state: response.into(),
+        });
+    }
+
+    todo!()
 }
