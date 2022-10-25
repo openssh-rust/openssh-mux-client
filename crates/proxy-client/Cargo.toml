@@ -23,5 +23,5 @@ serde = { version = "1.0.103", features = ["derive"] }
 ssh_format = { version = "0.14.1", features = ["bytes"] }
 strum = { version = "0.24", features = ["derive"] }
 tokio = { version = "1.11.0", features = ["rt", "io-util"] }
-tokio-io-utility = "0.7.1"
+tokio-io-utility = { version = "0.7.1", features = ["read-exact-to-bytes"] }
 non-zero-byte-slice = { version = "0.1.0", path = "../non-zero-byte-slice" }
