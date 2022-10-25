@@ -36,6 +36,10 @@ pub enum Error {
     #[error("Invalid recipient channel id {0}")]
     InvalidRecipientChannel(u32),
 
+    /// Invalid sender channel id
+    #[error("Invalid sender channel id {0}")]
+    InvalidSenderChannel(u32),
+
     /// Received duplicate sender channel id from sshd
     #[error("Received duplicate sender channel id {0} from sshd")]
     DuplicateSenderChannel(u32),
