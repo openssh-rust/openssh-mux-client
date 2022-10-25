@@ -31,6 +31,10 @@ pub enum Error {
         expected_state: &'static &'static str,
         actual_state: &'static str,
     },
+
+    /// Invalid recipient channel id
+    #[error("Invalid recipient channel id {0}")]
+    InvalidRecipientChannel(u32),
 }
 
 impl From<Error> for io::Error {
