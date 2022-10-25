@@ -1,4 +1,7 @@
-use std::{collections::hash_map::Entry, convert::TryInto, num::NonZeroUsize, pin::Pin};
+use std::{
+    collections::hash_map::Entry, convert::TryInto, num::NonZeroUsize, pin::Pin,
+    sync::atomic::Ordering::Relaxed,
+};
 
 use bytes::BytesMut;
 use hash_hasher::HashedMap as HashMap;
@@ -33,8 +36,11 @@ struct ChannelIngoingData {
     /// then read task should send `extend_window_size_packet`.
     receiver_win_size: u32,
 
-    /// Check [`super::channel::ChannelState`] for doc.
+    /// Check [`super::channel::ChannelState::extend_window_size_packet`] for doc.
     extend_window_size_packet: [u8; 14],
+
+    /// Check [`super::channel::ChannelState::extend_window_size`] for doc.
+    extend_window_size: u32,
 
     pending_requests: PendingRequests,
 }
@@ -98,6 +104,7 @@ where
                     let OpenChannelRequestedInner {
                         init_receiver_win_size,
                         extend_window_size_packet,
+                        extend_window_size,
                     } = outgoing_data_arena_arc
                         .state
                         .set_channel_open_res(OpenChannelRes::Confirmed { max_packet_size })?;
@@ -106,6 +113,7 @@ where
                         outgoing_data_arena_arc,
                         receiver_win_size: init_receiver_win_size,
                         extend_window_size_packet,
+                        extend_window_size,
                         pending_requests: PendingRequests::Done,
                     };
 
@@ -137,25 +145,31 @@ where
 
                     let cnt: u32 = bytes.len().try_into().unwrap_or(u32::MAX);
 
-                    if let Some(rx) = data.outgoing_data_arena_arc.rx.as_ref() {
+                    let outgoing_data = &*data.outgoing_data_arena_arc;
+
+                    if let Some(rx) = outgoing_data.rx.as_ref() {
                         rx.push_bytes(bytes);
                     }
 
                     let receiver_win_size = &mut data.receiver_win_size;
 
                     *receiver_win_size = receiver_win_size.saturating_sub(cnt);
-                    if *receiver_win_size == 0 {
+
+                    // Extend receiver window if it is 0 and there are still
+                    // active receivers
+                    if *receiver_win_size == 0 && outgoing_data.receivers_count.load(Relaxed) != 0 {
                         let start = buffer.len();
                         buffer.extend_from_slice(&data.extend_window_size_packet);
 
-                        // After this op, buffer contains [0, start) and bytes
-                        // contains `start..`
+                        // After this op, buffer contains [0, start) which
+                        // contains the same content before extend_from_slice
+                        // and bytes contains `start..`
                         let bytes = buffer.split_off(start).freeze();
 
                         shared_data.get_write_channel().push_bytes(bytes);
-                    }
 
-                    todo!()
+                        *receiver_win_size = data.extend_window_size;
+                    }
                 }
                 _ => todo!(),
             }
