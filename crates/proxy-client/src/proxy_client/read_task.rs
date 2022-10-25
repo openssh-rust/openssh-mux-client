@@ -114,6 +114,15 @@ fn handle_incoming_data(
     Ok(())
 }
 
+fn mark_eof(data: &mut ChannelIngoingData) {
+    if let Some(rx) = data.rx.take() {
+        rx.mark_eof();
+    }
+    if let Some(stderr) = data.stderr.take() {
+        stderr.mark_eof();
+    }
+}
+
 pub(super) fn create_read_task<R>(rx: R, shared_data: SharedData) -> JoinHandle<Result<(), Error>>
 where
     R: AsyncRead + Send + 'static,
@@ -227,6 +236,10 @@ async fn create_read_task_inner(
                     )?
                 }
             }
+            ChannelResponse::Eof => mark_eof(get_ingoing_data(
+                &mut ingoing_channel_map,
+                recipient_channel,
+            )?),
             _ => todo!(),
         }
     } else {
