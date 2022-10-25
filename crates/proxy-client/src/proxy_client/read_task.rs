@@ -209,6 +209,15 @@ async fn create_read_task_inner(
                     .set_channel_open_res(OpenChannelRes::Failed(failure))?;
             }
 
+            // Handle close of the channel
+            ChannelResponse::Close => {
+                let mut data = ingoing_channel_map
+                    .remove(&recipient_channel)
+                    .ok_or(Error::InvalidSenderChannel(recipient_channel))?;
+
+                mark_eof(&mut data);
+            }
+
             // Handle data related responses
             ChannelResponse::BytesAdjust { bytes_to_add } => {
                 get_ingoing_data(&mut ingoing_channel_map, recipient_channel)?
