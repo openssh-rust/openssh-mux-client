@@ -188,7 +188,26 @@ async fn create_read_task_inner(
     let mut buffer = BytesMut::with_capacity(1024);
     let mut ingoing_channel_map: HashMap<u32, ChannelIngoingData> = HashMap::default();
 
-    read_to_bytes_rng(&mut rx, &mut buffer, 4..).await?;
+    loop {
+        read_and_handle_one_packet(
+            rx.as_mut(),
+            &shared_data,
+            &mut buffer,
+            &mut ingoing_channel_map,
+        )
+        .await?;
+    }
+
+    todo!()
+}
+
+async fn read_and_handle_one_packet(
+    mut rx: Pin<&mut (dyn AsyncRead + Send)>,
+    shared_data: &SharedData,
+    buffer: &mut BytesMut,
+    ingoing_channel_map: &mut HashMap<u32, ChannelIngoingData>,
+) -> Result<(), Error> {
+    read_to_bytes_rng(&mut rx, buffer, 4..).await?;
 
     let packet_len: u32 = from_bytes(&buffer[..4])?.0;
     let packet_len: usize = packet_len.try_into().unwrap();
@@ -197,7 +216,7 @@ async fn create_read_task_inner(
     let packet_bytes_read = buffer.len() - 4;
 
     if packet_bytes_read < packet_len {
-        read_to_bytes_rng(&mut rx, &mut buffer, (packet_len - packet_bytes_read)..).await?;
+        read_to_bytes_rng(&mut rx, buffer, (packet_len - packet_bytes_read)..).await?;
     }
 
     // Split until (packet_len + 4).
@@ -268,42 +287,41 @@ async fn create_read_task_inner(
 
             // Handle data related responses
             ChannelResponse::BytesAdjust { bytes_to_add } => {
-                get_ingoing_data(&mut ingoing_channel_map, recipient_channel)?
+                get_ingoing_data(ingoing_channel_map, recipient_channel)?
                     .outgoing_data_arena_arc
                     .sender_window_size
                     .add(bytes_to_add.try_into().unwrap())
             }
             ChannelResponse::Data(bytes) => handle_incoming_data(
-                &mut ingoing_channel_map,
+                ingoing_channel_map,
                 recipient_channel,
                 bytes,
-                &mut buffer,
-                &shared_data,
+                buffer,
+                shared_data,
                 true,
             )?,
             ChannelResponse::ExtendedData { data_type, data } => {
                 if let ExtendedDataType::Stderr = data_type {
                     handle_incoming_data(
-                        &mut ingoing_channel_map,
+                        ingoing_channel_map,
                         recipient_channel,
                         data,
-                        &mut buffer,
-                        &shared_data,
+                        buffer,
+                        shared_data,
                         false,
                     )?
                 }
             }
-            ChannelResponse::Eof => mark_eof(get_ingoing_data(
-                &mut ingoing_channel_map,
-                recipient_channel,
-            )?),
+            ChannelResponse::Eof => {
+                mark_eof(get_ingoing_data(ingoing_channel_map, recipient_channel)?)
+            }
 
             // Handle responses to requests
             ChannelResponse::RequestSuccess => {
-                handle_request_response(&mut ingoing_channel_map, recipient_channel, true)?
+                handle_request_response(ingoing_channel_map, recipient_channel, true)?
             }
             ChannelResponse::RequestFailure => {
-                handle_request_response(&mut ingoing_channel_map, recipient_channel, false)?
+                handle_request_response(ingoing_channel_map, recipient_channel, false)?
             }
 
             // Handle incoming requests from sshd (exit status)
@@ -324,18 +342,18 @@ async fn create_read_task_inner(
                     }
                 };
 
-                get_ingoing_data(&mut ingoing_channel_map, recipient_channel)?
+                get_ingoing_data(ingoing_channel_map, recipient_channel)?
                     .outgoing_data_arena_arc
                     .state
                     .set_channel_process_status(process_status)?;
             }
         }
+
+        Ok(())
     } else {
-        return Err(Error::UnexpectedChannelState {
+        Err(Error::UnexpectedChannelState {
             expected_state: &"ChannelResponse",
             actual_state: response.into(),
-        });
+        })
     }
-
-    todo!()
 }
