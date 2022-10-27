@@ -14,11 +14,13 @@ use tokio_io_utility::read_to_bytes_rng;
 
 use crate::{
     proxy_client::{
-        channel::{Completion, MpscBytesChannel, OpenChannelRequestedInner, OpenChannelRes},
+        channel::{
+            Completion, MpscBytesChannel, OpenChannelRequestedInner, OpenChannelRes, ProcessStatus,
+        },
         ChannelDataArenaArc, SharedData,
     },
     request::ChannelAdjustWindow,
-    response::{ChannelResponse, ExtendedDataType, OpenConfirmation, Response},
+    response::{ChannelRequest, ChannelResponse, ExtendedDataType, OpenConfirmation, Response},
     Error,
 };
 
@@ -296,14 +298,37 @@ async fn create_read_task_inner(
                 recipient_channel,
             )?),
 
-            // Handle of responses to requests
+            // Handle responses to requests
             ChannelResponse::RequestSuccess => {
                 handle_request_response(&mut ingoing_channel_map, recipient_channel, true)?
             }
             ChannelResponse::RequestFailure => {
                 handle_request_response(&mut ingoing_channel_map, recipient_channel, false)?
             }
-            _ => todo!(),
+
+            // Handle incoming requests from sshd (exit status)
+            ChannelResponse::Request(request) => {
+                let process_status = match request {
+                    ChannelRequest::StatusCode(exit_status) => {
+                        ProcessStatus::ProcessExited(exit_status)
+                    }
+                    ChannelRequest::KilledBySignal(exit_signal) => {
+                        ProcessStatus::ProcessKilled(exit_signal)
+                    }
+                    _ => {
+                        return Err(Error::UnexpectedChannelState {
+                            expected_state:
+                                &"ChannelResponse::Request(StatusCode | KilledBySignal)",
+                            actual_state: "ChannelResponse::Request(Unknown)",
+                        })
+                    }
+                };
+
+                get_ingoing_data(&mut ingoing_channel_map, recipient_channel)?
+                    .outgoing_data_arena_arc
+                    .state
+                    .set_channel_process_status(process_status)?;
+            }
         }
     } else {
         return Err(Error::UnexpectedChannelState {
