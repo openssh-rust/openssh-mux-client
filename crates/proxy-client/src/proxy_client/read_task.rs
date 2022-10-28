@@ -1,5 +1,4 @@
 use std::{
-    collections::hash_map::Entry,
     convert::TryInto,
     num::NonZeroUsize,
     pin::Pin,
@@ -7,7 +6,7 @@ use std::{
 };
 
 use bytes::{Bytes, BytesMut};
-use hash_hasher::HashedMap as HashMap;
+use integer_hasher::IntMap;
 use ssh_format::from_bytes;
 use tokio::{io::AsyncRead, pin, spawn, task::JoinHandle};
 use tokio_io_utility::read_to_bytes_rng;
@@ -50,7 +49,7 @@ struct ChannelIngoingData {
 }
 
 #[derive(Debug, Default)]
-struct ChannelIngoingMap(HashMap<u32, ChannelIngoingData>);
+struct ChannelIngoingMap(IntMap<u32, ChannelIngoingData>);
 
 impl ChannelIngoingMap {
     /// Insert a new entry with key `channel_id`.
