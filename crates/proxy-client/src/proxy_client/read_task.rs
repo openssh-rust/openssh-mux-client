@@ -49,26 +49,46 @@ struct ChannelIngoingData {
     stderr: Option<Arc<MpscBytesChannel>>,
 }
 
-fn get_ingoing_data(
-    hashmap: &mut HashMap<u32, ChannelIngoingData>,
-    channel_id: u32,
-) -> Result<&mut ChannelIngoingData, Error> {
-    hashmap
-        .get_mut(&channel_id)
-        .ok_or(Error::InvalidSenderChannel(channel_id))
+#[derive(Debug, Default)]
+struct ChannelIngoingMap(HashMap<u32, ChannelIngoingData>);
+
+impl ChannelIngoingMap {
+    /// Insert a new entry with key `channel_id`.
+    /// If such entry already exists, return an error.
+    fn insert_new(&mut self, channel_id: u32, data: ChannelIngoingData) -> Result<(), Error> {
+        match self.0.entry(channel_id) {
+            Entry::Occupied(_) => Err(Error::DuplicateSenderChannel(channel_id)),
+            Entry::Vacant(entry) => {
+                entry.insert(data);
+                Ok(())
+            }
+        }
+    }
+
+    fn get(&mut self, channel_id: u32) -> Result<&mut ChannelIngoingData, Error> {
+        self.0
+            .get_mut(&channel_id)
+            .ok_or(Error::InvalidSenderChannel(channel_id))
+    }
+
+    fn remove(&mut self, channel_id: u32) -> Result<ChannelIngoingData, Error> {
+        self.0
+            .remove(&channel_id)
+            .ok_or(Error::InvalidSenderChannel(channel_id))
+    }
 }
 
 /// If `is_rx` then `bytes` will be pushed to `rx`.
 /// Otherwise it will be pushed to `stderr`.
 fn handle_incoming_data(
-    hashmap: &mut HashMap<u32, ChannelIngoingData>,
+    hashmap: &mut ChannelIngoingMap,
     recipient_channel: u32,
     bytes: Bytes,
     buffer: &mut BytesMut,
     shared_data: &SharedData,
     is_rx: bool,
 ) -> Result<(), Error> {
-    let data = get_ingoing_data(hashmap, recipient_channel)?;
+    let data = hashmap.get(recipient_channel)?;
 
     let cnt: u32 = bytes.len().try_into().unwrap_or(u32::MAX);
 
@@ -123,11 +143,11 @@ fn mark_eof(data: &mut ChannelIngoingData) {
 }
 
 fn handle_request_response(
-    hashmap: &mut HashMap<u32, ChannelIngoingData>,
+    hashmap: &mut ChannelIngoingMap,
     recipient_channel: u32,
     success: bool,
 ) -> Result<(), Error> {
-    let data = get_ingoing_data(hashmap, recipient_channel)?;
+    let data = hashmap.get(recipient_channel)?;
 
     let pending = &mut data.pending_requests.pending;
 
@@ -186,7 +206,7 @@ async fn create_read_task_inner(
     shared_data: SharedData,
 ) -> Result<(), Error> {
     let mut buffer = BytesMut::with_capacity(1024);
-    let mut ingoing_channel_map: HashMap<u32, ChannelIngoingData> = HashMap::default();
+    let mut ingoing_channel_map = ChannelIngoingMap::default();
 
     loop {
         read_and_handle_one_packet(
@@ -205,7 +225,7 @@ async fn read_and_handle_one_packet(
     mut rx: Pin<&mut (dyn AsyncRead + Send)>,
     shared_data: &SharedData,
     buffer: &mut BytesMut,
-    ingoing_channel_map: &mut HashMap<u32, ChannelIngoingData>,
+    ingoing_channel_map: &mut ChannelIngoingMap,
 ) -> Result<(), Error> {
     read_to_bytes_rng(&mut rx, buffer, 4..).await?;
 
@@ -260,14 +280,7 @@ async fn read_and_handle_one_packet(
                     pending_requests: Default::default(),
                 };
 
-                match ingoing_channel_map.entry(sender_channel) {
-                    Entry::Occupied(_) => {
-                        return Err(Error::DuplicateSenderChannel(sender_channel));
-                    }
-                    Entry::Vacant(entry) => {
-                        entry.insert(ingoing_data);
-                    }
-                }
+                ingoing_channel_map.insert_new(sender_channel, ingoing_data)?;
             }
             ChannelResponse::OpenFailure(failure) => {
                 shared_data
@@ -278,20 +291,17 @@ async fn read_and_handle_one_packet(
 
             // Handle close of the channel
             ChannelResponse::Close => {
-                let mut data = ingoing_channel_map
-                    .remove(&recipient_channel)
-                    .ok_or(Error::InvalidSenderChannel(recipient_channel))?;
+                let mut data = ingoing_channel_map.remove(recipient_channel)?;
 
                 mark_eof(&mut data);
             }
 
             // Handle data related responses
-            ChannelResponse::BytesAdjust { bytes_to_add } => {
-                get_ingoing_data(ingoing_channel_map, recipient_channel)?
-                    .outgoing_data_arena_arc
-                    .sender_window_size
-                    .add(bytes_to_add.try_into().unwrap())
-            }
+            ChannelResponse::BytesAdjust { bytes_to_add } => ingoing_channel_map
+                .get(recipient_channel)?
+                .outgoing_data_arena_arc
+                .sender_window_size
+                .add(bytes_to_add.try_into().unwrap()),
             ChannelResponse::Data(bytes) => handle_incoming_data(
                 ingoing_channel_map,
                 recipient_channel,
@@ -312,9 +322,7 @@ async fn read_and_handle_one_packet(
                     )?
                 }
             }
-            ChannelResponse::Eof => {
-                mark_eof(get_ingoing_data(ingoing_channel_map, recipient_channel)?)
-            }
+            ChannelResponse::Eof => mark_eof(ingoing_channel_map.get(recipient_channel)?),
 
             // Handle responses to requests
             ChannelResponse::RequestSuccess => {
@@ -342,7 +350,8 @@ async fn read_and_handle_one_packet(
                     }
                 };
 
-                get_ingoing_data(ingoing_channel_map, recipient_channel)?
+                ingoing_channel_map
+                    .get(recipient_channel)?
                     .outgoing_data_arena_arc
                     .state
                     .set_channel_process_status(process_status)?;
