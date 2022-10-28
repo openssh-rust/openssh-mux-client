@@ -56,12 +56,10 @@ impl ChannelIngoingMap {
     /// Insert a new entry with key `channel_id`.
     /// If such entry already exists, return an error.
     fn insert_new(&mut self, channel_id: u32, data: ChannelIngoingData) -> Result<(), Error> {
-        match self.0.entry(channel_id) {
-            Entry::Occupied(_) => Err(Error::DuplicateSenderChannel(channel_id)),
-            Entry::Vacant(entry) => {
-                entry.insert(data);
-                Ok(())
-            }
+        if self.0.insert(channel_id, data).is_some() {
+            Err(Error::DuplicateSenderChannel(channel_id))
+        } else {
+            Ok(())
         }
     }
 
