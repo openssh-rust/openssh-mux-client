@@ -9,6 +9,10 @@ enum EstablishedSessionState {
     TtyAllocFail,
 }
 
+/// NOTE that once `EstablishedSession` is dropped, any data written to
+/// `stdin` will not be send to the remote process and
+/// `stdout` and `stderr` would eof immediately.
+///
 /// # Cancel safety
 ///
 /// All methods of this struct is not cancellation safe.
