@@ -291,6 +291,8 @@ impl Connection {
     /// Two additional cases that the client must cope with are it receiving
     /// a signal itself (from the ssh mux server) and the server disconnecting
     /// without sending an exit message.
+    ///
+    /// * `fds` - must be in blocking mode
     pub async fn open_new_session(
         mut self,
         session: &Session<'_>,
