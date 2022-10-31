@@ -18,6 +18,7 @@ integer-hasher = "0.1.0"
 bytes = { version = "1.2.1", features = ["serde"] }
 compact_str = { version = "0.6.1", features = ["serde"] }
 concurrent_arena = "0.1.7"
+derive_destructure2 = "0.1.0"
 futures-util = { version = "0.3.24", features = ["sink"] }
 serde = { version = "1.0.103", features = ["derive"] }
 ssh_format = { version = "0.14.1", features = ["bytes"] }
