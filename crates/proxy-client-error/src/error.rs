@@ -1,5 +1,7 @@
 use std::io;
+
 use thiserror::Error as ThisError;
+use tokio::task::JoinError;
 
 use crate::{OpenFailure, SshFormatError};
 
@@ -26,12 +28,31 @@ pub enum Error {
     ChannelOpenFailure(#[from] OpenFailure),
 
     /// Unexpected channel state
-    #[error("Expected {expected_state} but actual state is {actual_state}: {msg}")]
+    #[error("Expected {expected_state} but actual state is {actual_state}")]
     UnexpectedChannelState {
         expected_state: &'static &'static str,
         actual_state: &'static str,
-        msg: &'static &'static str,
     },
+
+    /// Invalid recipient channel id
+    #[error("Invalid recipient channel id {0}")]
+    InvalidRecipientChannel(u32),
+
+    /// Invalid sender channel id
+    #[error("Invalid sender channel id {0}")]
+    InvalidSenderChannel(u32),
+
+    /// Received duplicate sender channel id from sshd
+    #[error("Received duplicate sender channel id {0} from sshd")]
+    DuplicateSenderChannel(u32),
+
+    /// Receive unexpected response for channel request
+    #[error("Receive unexpected response for channel request")]
+    UnexpectedRequestResponse,
+
+    /// Tokio task failed
+    #[error("tokio task failed: {0}")]
+    JoinError(#[from] JoinError),
 }
 
 impl From<Error> for io::Error {

@@ -1,7 +1,6 @@
-use std::num::NonZeroU32;
-
 use bytes::Bytes;
 use serde::Deserialize;
+use strum::IntoStaticStr;
 
 use crate::{
     constants::*,
@@ -18,24 +17,18 @@ where
 mod channel;
 pub(crate) use channel::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, IntoStaticStr)]
 pub(crate) enum Response {
     GlobalRequestFailure,
 
-    GlobalRequestSuccess {
-        /// Response of global remote-forwarding request.
-        port: Option<NonZeroU32>,
-    },
+    GlobalRequestSuccess,
 
     ChannelResponse {
         channel_response: ChannelResponse,
         recipient_channel: u32,
     },
 
-    OpenChannelRequest {
-        body: ChannelOpen,
-        data: Bytes,
-    },
+    OpenChannelRequest,
 }
 
 impl Response {
@@ -45,19 +38,9 @@ impl Response {
         let bytes = bytes.slice(2..);
 
         match packet_type {
-            SSH_MSG_REQUEST_SUCCESS => {
-                let port = if bytes.len() == 4 {
-                    Some(deserialize(&bytes)?)
-                } else {
-                    None
-                };
-                Ok(Response::GlobalRequestSuccess { port })
-            }
+            SSH_MSG_REQUEST_SUCCESS => Ok(Response::GlobalRequestSuccess),
             SSH_MSG_REQUEST_FAILURE => Ok(Response::GlobalRequestFailure),
-            SSH_MSG_CHANNEL_OPEN => {
-                let (body, data) = ChannelOpen::from_bytes(bytes)?;
-                Ok(Response::OpenChannelRequest { body, data })
-            }
+            SSH_MSG_CHANNEL_OPEN => Ok(Response::OpenChannelRequest),
             packet_type => Ok(Response::ChannelResponse {
                 recipient_channel: deserialize(&bytes)?,
                 channel_response: ChannelResponse::from_packet(packet_type, bytes.slice(4..))?,

@@ -60,31 +60,6 @@ impl<T: Serialize> Request<T> {
 
         res
     }
-
-    /// If the slice is not large enough, the function will panic.
-    ///
-    /// Return number of bytes written.
-    pub(crate) fn serialize_to_slice(
-        &self,
-        slice: &mut [u8],
-        extra_data: u32,
-    ) -> Result<usize, Error> {
-        // Serialize
-        let mut buffer = SliceOutput(&mut slice[4..], 0);
-
-        let mut serializer = Serializer::new(&mut buffer);
-        self.serialize(&mut serializer)?;
-
-        // Write the header
-        let header = serializer.create_header(extra_data)?;
-
-        let cnt = buffer.1;
-
-        slice[..4].copy_from_slice(&header);
-
-        // Split and freeze it
-        Ok(4 + cnt)
-    }
 }
 
 #[derive(Debug)]
