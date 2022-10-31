@@ -5,7 +5,7 @@ use tokio_io_utility::{write_all_bytes, ReusableIoSlices};
 
 use crate::{proxy_client::SharedData, Error};
 
-pub(super) async fn create_write_task<W>(
+pub(super) fn create_write_task<W>(
     tx: W,
     shared_data: SharedData,
     reusable_io_slice_cap: NonZeroUsize,
