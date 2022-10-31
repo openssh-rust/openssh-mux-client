@@ -1,5 +1,6 @@
 use std::{num::NonZeroUsize, pin::Pin};
 
+use scopeguard::defer;
 use tokio::{io::AsyncWrite, pin, spawn, task::JoinHandle};
 use tokio_io_utility::{write_all_bytes, ReusableIoSlices};
 
@@ -30,6 +31,10 @@ async fn create_write_task_inner(
 
     let mut buffer = Vec::new();
 
+    defer! {
+        shared_data.get_read_task_shutdown_notifier().notify_one();
+    }
+
     loop {
         write_channel.wait_for_data(&mut buffer).await;
         if buffer.is_empty() {
@@ -39,8 +44,6 @@ async fn create_write_task_inner(
 
         write_all_bytes(tx.as_mut(), &mut buffer, &mut reusable_io_slice).await?;
     }
-
-    shared_data.get_read_task_shutdown_notifier().notify_one();
 
     Ok(())
 }
