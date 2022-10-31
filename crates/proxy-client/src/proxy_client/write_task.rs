@@ -34,9 +34,13 @@ async fn create_write_task_inner(
         write_channel.wait_for_data(&mut buffer).await;
         if buffer.is_empty() {
             // Eof
-            break Ok(());
+            break;
         }
 
         write_all_bytes(tx.as_mut(), &mut buffer, &mut reusable_io_slice).await?;
     }
+
+    shared_data.get_read_task_shutdown_notifier().notify_one();
+
+    Ok(())
 }

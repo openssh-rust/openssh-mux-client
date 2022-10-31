@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use tokio::sync::Notify;
+
 use crate::{
     proxy_client::channel::{ChannelData, MpscBytesChannel},
     Error,
@@ -36,10 +38,15 @@ impl SharedData {
             .get(slot)
             .ok_or(Error::InvalidRecipientChannel(slot))
     }
+
+    pub(super) fn get_read_task_shutdown_notifier(&self) -> &Notify {
+        &self.0.read_task_shutdown_notifier
+    }
 }
 
 #[derive(Debug, Default)]
 struct SharedDataInner {
     write_channel: MpscBytesChannel,
     channel_data_arena: ChannelDataArena,
+    read_task_shutdown_notifier: Notify,
 }

@@ -8,7 +8,7 @@ use std::{
 use bytes::{Bytes, BytesMut};
 use integer_hasher::IntMap;
 use ssh_format::from_bytes;
-use tokio::{io::AsyncRead, pin, spawn, task::JoinHandle};
+use tokio::{io::AsyncRead, pin, select, spawn, task::JoinHandle};
 use tokio_io_utility::read_to_bytes_rng;
 
 use crate::{
@@ -72,6 +72,10 @@ impl ChannelIngoingMap {
         self.0
             .remove(&channel_id)
             .ok_or(Error::InvalidSenderChannel(channel_id))
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
@@ -205,17 +209,25 @@ async fn create_read_task_inner(
     let mut buffer = BytesMut::with_capacity(1024);
     let mut ingoing_channel_map = ChannelIngoingMap::default();
 
-    loop {
-        read_and_handle_one_packet(
-            rx.as_mut(),
-            &shared_data,
-            &mut buffer,
-            &mut ingoing_channel_map,
-        )
-        .await?;
-    }
+    let notified = shared_data.get_read_task_shutdown_notifier().notified();
+    pin!(notified);
 
-    todo!()
+    notified.as_mut().enable();
+
+    loop {
+        select! {
+            biased;
+
+            res = read_and_handle_one_packet(
+                rx.as_mut(),
+                &shared_data,
+                &mut buffer,
+                &mut ingoing_channel_map,
+            ) => res?,
+
+            _ = &mut notified, if ingoing_channel_map.is_empty() => break Ok(()),
+        }
+    }
 }
 
 async fn read_and_handle_one_packet(
