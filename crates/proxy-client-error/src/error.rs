@@ -1,5 +1,7 @@
 use std::io;
+
 use thiserror::Error as ThisError;
+use tokio::task::JoinError;
 
 use crate::{OpenFailure, SshFormatError};
 
@@ -47,6 +49,10 @@ pub enum Error {
     /// Receive unexpected response for channel request
     #[error("Receive unexpected response for channel request")]
     UnexpectedRequestResponse,
+
+    /// Tokio task failed
+    #[error("tokio task failed: {0}")]
+    JoinError(#[from] JoinError),
 }
 
 impl From<Error> for io::Error {
