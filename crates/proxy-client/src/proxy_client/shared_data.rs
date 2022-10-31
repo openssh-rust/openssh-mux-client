@@ -44,6 +44,25 @@ impl SharedData {
     }
 }
 
+impl Drop for SharedData {
+    fn drop(&mut self) {
+        if Arc::strong_count(&self.0) == 3 {
+            // There are only three references to `Arc` now:
+            //  - This reference to `Arc`
+            //  - The reference in read_task
+            //  - The reference in write_task
+            //
+            // which means that we should request shutdown now.
+            //
+            // Once write_channel is marked as eof, write task
+            // would exit as soon as all data is flushed.
+            //
+            // Then it would notify read task to also shutdown.
+            self.get_write_channel().mark_eof();
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 struct SharedDataInner {
     write_channel: MpscBytesChannel,
