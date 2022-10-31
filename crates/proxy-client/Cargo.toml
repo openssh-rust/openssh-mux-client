@@ -22,6 +22,6 @@ futures-util = { version = "0.3.24", features = ["sink"] }
 serde = { version = "1.0.103", features = ["derive"] }
 ssh_format = { version = "0.14.1", features = ["bytes"] }
 strum = { version = "0.24", features = ["derive"] }
-tokio = { version = "1.11.0", features = ["rt", "io-util"] }
+tokio = { version = "1.11.0", features = ["rt", "io-util", "sync", "macros"] }
 tokio-io-utility = { version = "0.7.4", features = ["read-exact-to-bytes"] }
 non-zero-byte-slice = { version = "0.1.0", path = "../non-zero-byte-slice" }
