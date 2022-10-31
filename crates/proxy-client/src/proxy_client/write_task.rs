@@ -35,6 +35,8 @@ async fn create_write_task_inner(
         shared_data.get_read_task_shutdown_notifier().notify_one();
     }
 
+    let cancellation_guard = shared_data.get_cancellation_token().clone().drop_guard();
+
     loop {
         write_channel.wait_for_data(&mut buffer).await;
         if buffer.is_empty() {
@@ -44,6 +46,8 @@ async fn create_write_task_inner(
 
         write_all_bytes(tx.as_mut(), &mut buffer, &mut reusable_io_slice).await?;
     }
+
+    cancellation_guard.disarm();
 
     Ok(())
 }

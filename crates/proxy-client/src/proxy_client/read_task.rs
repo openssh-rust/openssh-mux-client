@@ -214,6 +214,8 @@ async fn create_read_task_inner(
 
     notified.as_mut().enable();
 
+    let cancellation_guard = shared_data.get_cancellation_token().clone().drop_guard();
+
     loop {
         select! {
             biased;
@@ -225,9 +227,13 @@ async fn create_read_task_inner(
                 &mut ingoing_channel_map,
             ) => res?,
 
-            _ = &mut notified, if ingoing_channel_map.is_empty() => break Ok(()),
+            _ = &mut notified, if ingoing_channel_map.is_empty() => break ,
         }
     }
+
+    cancellation_guard.disarm();
+
+    Ok(())
 }
 
 async fn read_and_handle_one_packet(

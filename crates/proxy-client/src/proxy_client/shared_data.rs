@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use tokio::sync::Notify;
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     proxy_client::channel::{ChannelData, MpscBytesChannel},
@@ -42,6 +43,10 @@ impl SharedData {
     pub(super) fn get_read_task_shutdown_notifier(&self) -> &Notify {
         &self.0.read_task_shutdown_notifier
     }
+
+    pub(super) fn get_cancellation_token(&self) -> &CancellationToken {
+        &self.0.cancellation_token
+    }
 }
 
 impl Drop for SharedData {
@@ -67,5 +72,8 @@ impl Drop for SharedData {
 struct SharedDataInner {
     write_channel: MpscBytesChannel,
     channel_data_arena: ChannelDataArena,
+
     read_task_shutdown_notifier: Notify,
+
+    cancellation_token: CancellationToken,
 }
