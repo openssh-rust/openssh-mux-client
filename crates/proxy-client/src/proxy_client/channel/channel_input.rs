@@ -8,7 +8,9 @@ use std::{
 
 use bytes::{Bytes, BytesMut};
 use futures_util::{ready, Sink, SinkExt};
+use pin_project::{pin_project, pinned_drop};
 use tokio::io::AsyncWrite;
+use tokio_util::sync::WaitForCancellationFutureOwned;
 
 use super::ChannelRef;
 use crate::{
@@ -18,6 +20,7 @@ use crate::{
 
 /// Input of the Channel
 #[derive(Debug)]
+#[pin_project(PinnedDrop)]
 pub struct ChannelInput {
     channel_ref: ChannelRef,
 
@@ -32,25 +35,34 @@ pub struct ChannelInput {
     pending_len: usize,
 
     buffer: BytesMut,
+
+    #[pin]
+    token: WaitForCancellationFutureOwned,
 }
 
 impl ChannelInput {
-    fn add_pending_byte(&mut self, bytes: Bytes) {
-        self.pending_len += bytes.len();
-        self.pending_bytes.push(bytes);
+    fn add_pending_byte(self: Pin<&mut Self>, bytes: Bytes) {
+        let this = self.project();
+
+        *this.pending_len += bytes.len();
+        this.pending_bytes.push(bytes);
     }
 
-    fn update_curr_sender_win_size(&mut self) {
-        self.curr_sender_win += self.channel_ref.channel_data.sender_window_size.get();
+    fn update_curr_sender_win_size(self: Pin<&mut Self>) {
+        let this = self.project();
+
+        *this.curr_sender_win += this.channel_ref.channel_data.sender_window_size.get();
     }
 
     /// * `n` - number of bytes to write
     ///
     /// This function would not modify any existing data in `self.buffer`
-    fn create_data_transfer_header(&mut self, n: u32) -> Result<Bytes, Error> {
-        let channel_id = self.channel_ref.channel_id();
+    fn create_data_transfer_header(self: Pin<&mut Self>, n: u32) -> Result<Bytes, Error> {
+        let this = self.project();
 
-        let buffer = &mut self.buffer;
+        let channel_id = this.channel_ref.channel_id();
+
+        let buffer = this.buffer;
 
         let before = buffer.len();
         let res = DataTransfer::create_header(channel_id, n, buffer);
@@ -61,20 +73,24 @@ impl ChannelInput {
         res
     }
 
-    fn try_flush(&mut self) -> Result<(), Error> {
+    fn try_flush(mut self: Pin<&mut Self>) -> Result<(), Error> {
+        let this = self.as_mut().project();
+
         // Maximum number of bytes we can write to
-        let max = self
+        let max = this
             .max_packet_size
             .get()
-            .min(self.curr_sender_win.try_into().unwrap_or(u32::MAX));
+            .min((*this.curr_sender_win).try_into().unwrap_or(u32::MAX));
 
-        if max == 0 || self.pending_bytes.is_empty() {
+        if max == 0 || this.pending_bytes.is_empty() {
             return Ok(());
         }
 
-        let header = self.create_data_transfer_header(max)?;
+        let header = self.as_mut().create_data_transfer_header(max)?;
 
-        let pending_bytes = &mut self.pending_bytes;
+        let this = self.as_mut().project();
+
+        let pending_bytes = this.pending_bytes;
 
         let mut max: usize = max.try_into().unwrap_or(usize::MAX);
         let mut bytes_written: usize = 0;
@@ -118,7 +134,7 @@ impl ChannelInput {
 
         let mut drain = pending_bytes.drain(0..pending_end);
 
-        self.channel_ref
+        this.channel_ref
             .shared_data
             .get_write_channel()
             .add_more_data(
@@ -132,10 +148,10 @@ impl ChannelInput {
                     .chain(maybe_last_bytes),
             );
 
-        self.pending_len -= bytes_written;
+        *this.pending_len -= bytes_written;
 
         let bytes_written: u64 = bytes_written.try_into().unwrap();
-        self.curr_sender_win -= bytes_written;
+        *this.curr_sender_win -= bytes_written;
 
         Ok(())
     }
@@ -144,9 +160,11 @@ impl ChannelInput {
 impl Sink<Bytes> for ChannelInput {
     type Error = Error;
 
-    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        if self.curr_sender_win == 0 {
-            self.curr_sender_win = ready!(self
+    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        let this = self.project();
+
+        if *this.curr_sender_win == 0 {
+            *this.curr_sender_win = ready!(this
                 .channel_ref
                 .channel_data
                 .sender_window_size
@@ -159,16 +177,18 @@ impl Sink<Bytes> for ChannelInput {
 
     fn start_send(mut self: Pin<&mut Self>, bytes: Bytes) -> Result<(), Self::Error> {
         if !bytes.is_empty() {
-            self.add_pending_byte(bytes);
+            self.as_mut().add_pending_byte(bytes);
 
-            self.update_curr_sender_win_size();
+            self.as_mut().update_curr_sender_win_size();
 
-            let curr_sender_win: usize = self.curr_sender_win.try_into().unwrap_or(usize::MAX);
+            let this = self.as_mut().project();
+
+            let curr_sender_win: usize = (*this.curr_sender_win).try_into().unwrap_or(usize::MAX);
             let max_packet_size: usize =
-                self.max_packet_size.get().try_into().unwrap_or(usize::MAX);
+                this.max_packet_size.get().try_into().unwrap_or(usize::MAX);
 
             if curr_sender_win > 0 && self.pending_len >= curr_sender_win.min(max_packet_size) {
-                Pin::into_inner(self.as_mut()).try_flush()?;
+                self.try_flush()?;
             }
         }
 
@@ -176,15 +196,15 @@ impl Sink<Bytes> for ChannelInput {
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        while !self.pending_bytes.is_empty() {
-            if self.curr_sender_win == 0 {
+        while !self.as_mut().project().pending_bytes.is_empty() {
+            if *self.as_mut().project().curr_sender_win == 0 {
                 ready!(self.as_mut().poll_ready(cx))?;
             } else {
                 // Try to send as much as we can in one single packet
-                self.update_curr_sender_win_size();
+                self.as_mut().update_curr_sender_win_size();
             }
 
-            Pin::into_inner(self.as_mut()).try_flush()?;
+            self.as_mut().try_flush()?;
         }
 
         Poll::Ready(Ok(()))
@@ -205,7 +225,9 @@ impl AsyncWrite for ChannelInput {
             return Poll::Ready(Ok(0));
         }
 
-        let buffer = &mut self.buffer;
+        let this = self.as_mut().project();
+
+        let buffer = this.buffer;
 
         debug_assert!(buffer.is_empty());
         buffer.clear();
@@ -228,7 +250,9 @@ impl AsyncWrite for ChannelInput {
             return Poll::Ready(Ok(0));
         }
 
-        let buffer = &mut self.buffer;
+        let this = self.as_mut().project();
+
+        let buffer = this.buffer;
 
         debug_assert!(buffer.is_empty());
         buffer.clear();
@@ -261,10 +285,12 @@ impl AsyncWrite for ChannelInput {
 }
 
 impl ChannelInput {
-    fn send_eof_packet(&mut self) {
-        let channel_id = self.channel_ref.channel_id();
+    fn send_eof_packet(self: Pin<&mut Self>) {
+        let this = self.project();
 
-        let buffer = &mut self.buffer;
+        let channel_id = this.channel_ref.channel_id();
+
+        let buffer = this.buffer;
         debug_assert!(buffer.is_empty());
         buffer.clear();
 
@@ -273,44 +299,57 @@ impl ChannelInput {
             .expect("Serialization should not fail here");
         let bytes = buffer.split().freeze();
 
-        self.channel_ref
+        this.channel_ref
             .shared_data
             .get_write_channel()
             .push_bytes(bytes);
     }
 }
 
-impl Drop for ChannelInput {
-    fn drop(&mut self) {
-        if self.pending_bytes.is_empty() {
+#[pinned_drop]
+impl PinnedDrop for ChannelInput {
+    fn drop(mut self: Pin<&mut Self>) {
+        if self.as_mut().project().pending_bytes.is_empty() {
             self.send_eof_packet();
         } else {
-            self.update_curr_sender_win_size();
+            self.as_mut().update_curr_sender_win_size();
 
-            if self.try_flush().is_err() || self.pending_bytes.is_empty() {
+            if self.as_mut().try_flush().is_err()
+                || self.as_mut().project().pending_bytes.is_empty()
+            {
                 self.send_eof_packet();
             } else {
+                let this = self.project();
+
                 // Send all pending data in another task
                 //
                 // After constructing `new_channel_input`,
                 // the old one does not contain any pending data at all,
                 // and it would be simply dropped without sending eof.
-                let mut new_channel_input = ChannelInput {
-                    channel_ref: self.channel_ref.clone(),
-                    max_packet_size: self.max_packet_size,
-                    curr_sender_win: self.curr_sender_win,
+                let new_channel_input = ChannelInput {
+                    channel_ref: this.channel_ref.clone(),
+                    max_packet_size: *this.max_packet_size,
+                    curr_sender_win: *this.curr_sender_win,
 
-                    pending_bytes: mem::take(&mut self.pending_bytes),
-                    pending_len: mem::take(&mut self.pending_len),
+                    pending_bytes: mem::take(this.pending_bytes),
+                    pending_len: mem::take(this.pending_len),
 
-                    buffer: mem::take(&mut self.buffer),
+                    buffer: mem::take(this.buffer),
+
+                    token: this
+                        .channel_ref
+                        .shared_data
+                        .get_cancellation_token()
+                        .clone()
+                        .cancelled_owned(),
                 };
                 tokio::spawn(async move {
-                    if new_channel_input.close().await.is_err() {
+                    tokio::pin!(new_channel_input);
+                    if new_channel_input.as_mut().close().await.is_err() {
                         // Make sure drop implementation would send eof packet
                         // instead of trying to flush the data again
                         // or create yet another task.
-                        new_channel_input.pending_bytes.clear();
+                        new_channel_input.project().pending_bytes.clear();
                     }
                 });
             }
