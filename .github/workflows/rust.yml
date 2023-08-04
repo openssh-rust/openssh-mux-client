@@ -24,24 +24,12 @@ jobs:
       matrix:
         os: [macos-latest]
     steps:
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
       - uses: actions/checkout@v3
       - name: Create lockfile
         run: cargo update
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ github.event.repository.name }}-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}-cargo-check-v2
+      - uses: Swatinem/rust-cache@v2
       - name: cargo check
-        run: cargo check --all-features
+        run: cargo check --all-features --workspace
 
   check:
     runs-on: ubuntu-latest
@@ -50,18 +38,10 @@ jobs:
     - uses: actions/checkout@v3
     - name: Create lockfile
       run: cargo update
-    - uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ github.event.repository.name }}-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}-cargo-check-v2
+    - uses: Swatinem/rust-cache@v2
     - name: Run check
       run: |
-        cargo clippy --all
+        cargo clippy --all --no-deps
         cargo fmt --all -- --check
 
   build:
@@ -70,21 +50,15 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Install latest nightly
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: nightly
-          override: true
-          components: miri
+      run: |
+        rustup toolchain install nightly --component miri --profile minimal --no-self-update
+        rustup override set nightly
     - name: Create lockfile
       run: cargo update
-    - uses: actions/cache@v3
+    - uses: Swatinem/rust-cache@v2
+    - name: Cache Docker images
+      uses: ScribeMD/docker-cache@0.3.4
       with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/index/
-          ~/.cargo/registry/cache/
-          ~/.cargo/git/db/
-          target/
-        key: ${{ github.event.repository.name }}-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}-cargo-test-with-miri-v2
+        key: docker-${{ runner.os }}-${{ hashFiles('testfiles/**') }}
     - name: Run tests
       run: ./run_test.sh
