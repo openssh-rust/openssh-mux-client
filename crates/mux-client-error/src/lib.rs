@@ -4,6 +4,7 @@ use thiserror::Error as ThisError;
 pub use ssh_format_error::Error as SshFormatError;
 
 #[derive(Debug, ThisError)]
+#[non_exhaustive]
 pub enum Error {
     /// Server speaks multiplex protocol other than protocol 4.
     #[error("Server speaks multiplex protocol other than protocol 4.")]
