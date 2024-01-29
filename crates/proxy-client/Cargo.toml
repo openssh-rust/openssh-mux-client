@@ -21,7 +21,7 @@ concurrent_arena = "0.1.7"
 futures-util = { version = "0.3.24", features = ["sink"] }
 serde = { version = "1.0.103", features = ["derive"] }
 ssh_format = { version = "0.14.1", features = ["bytes"] }
-strum = { version = "0.25", features = ["derive"] }
+strum = { version = "0.26", features = ["derive"] }
 scopeguard = "1.1.0"
 tokio = { version = "1.11.0", features = ["rt", "io-util", "sync", "macros"] }
 tokio-io-utility = { version = "0.7.4", features = ["read-exact-to-bytes"] }
