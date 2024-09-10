@@ -760,16 +760,17 @@ mod tests {
         drop(stdios);
 
         eprintln!("Closing port forward");
-        conn1.close_port_forward(
-            ForwardType::Remote,
-            &Socket::UnixSocket { path: path.into() },
-            &Socket::TcpSocket {
-                port: 1234,
-                host: "127.0.0.1".into(),
-            },
-        )
-        .await
-        .unwrap();
+        conn1
+            .close_port_forward(
+                ForwardType::Remote,
+                &Socket::UnixSocket { path: path.into() },
+                &Socket::TcpSocket {
+                    port: 1234,
+                    host: "127.0.0.1".into(),
+                },
+            )
+            .await
+            .unwrap();
 
         eprintln!("Waiting for session to end");
         let session_status = established_session.wait().await.unwrap();
