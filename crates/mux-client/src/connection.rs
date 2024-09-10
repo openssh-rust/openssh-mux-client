@@ -767,7 +767,7 @@ mod tests {
             .unwrap();
 
         eprintln!("Checking whether the forwarded socket is closed");
-        output.read(&mut buffer).await.unwrap();
+        assert_eq!(output.read(&mut buffer).await.unwrap(), 0);
 
         drop(output_listener);
         drop(output);
