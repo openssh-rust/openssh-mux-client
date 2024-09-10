@@ -819,9 +819,6 @@ mod tests {
 
         assert_eq!(DATA, buffer);
 
-        drop(output);
-        drop(stdios);
-
         eprintln!("Closing port forward");
         conn1
             .close_port_forward(
@@ -834,6 +831,12 @@ mod tests {
             )
             .await
             .unwrap();
+
+        eprintln!("Checking whether the forwarded socket is closed");
+        assert_eq!(output.read(&mut buffer).await.unwrap(), 0);
+
+        drop(output);
+        drop(stdios);
 
         eprintln!("Waiting for session to end");
         let session_status = established_session.wait().await.unwrap();
