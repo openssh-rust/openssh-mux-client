@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.6](https://github.com/openssh-rust/openssh-mux-client/compare/openssh-mux-client-v0.17.5...openssh-mux-client-v0.17.6) - 2024-09-10
+
+### Other
+
+- Port forwarding closure ([#57](https://github.com/openssh-rust/openssh-mux-client/pull/57))
+
 ## [0.17.5](https://github.com/openssh-rust/openssh-mux-client/compare/openssh-mux-client-v0.17.4...openssh-mux-client-v0.17.5) - 2024-08-23
 
 ### Other
