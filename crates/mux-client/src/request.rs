@@ -47,6 +47,10 @@ pub(crate) enum Request {
     /// `Request::RemotePort`.
     OpenFwd { request_id: u32, fwd_mode: u32 },
 
+    /// A server may reply with `Response::Ok`, `Response::PermissionDenied`,
+    /// or `Response::Failure`.
+    CloseFwd { request_id: u32, fwd_mode: u32 },
+
     /// A client may request the master to stop accepting new multiplexing requests
     /// and remove its listener socket.
     ///
@@ -85,6 +89,15 @@ impl Serialize for Request {
                 "Request",
                 MUX_C_OPEN_FWD,
                 "OpenFwd",
+                &(*request_id, fwd_mode),
+            ),
+            CloseFwd {
+                request_id,
+                fwd_mode,
+            } => serializer.serialize_newtype_variant(
+                "Request",
+                MUX_C_CLOSE_FWD,
+                "CloseFwd",
                 &(*request_id, fwd_mode),
             ),
             StopListening { request_id } => serializer.serialize_newtype_variant(
