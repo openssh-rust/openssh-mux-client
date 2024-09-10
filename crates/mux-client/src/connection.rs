@@ -724,16 +724,17 @@ mod tests {
         let output_listener = TcpListener::bind(("127.0.0.1", 1234)).await.unwrap();
 
         eprintln!("Requesting port forward");
-        conn0.request_port_forward(
-            ForwardType::Remote,
-            &Socket::UnixSocket { path: path.into() },
-            &Socket::TcpSocket {
-                port: 1234,
-                host: "127.0.0.1".into(),
-            },
-        )
-        .await
-        .unwrap();
+        conn0
+            .request_port_forward(
+                ForwardType::Remote,
+                &Socket::UnixSocket { path: path.into() },
+                &Socket::TcpSocket {
+                    port: 1234,
+                    host: "127.0.0.1".into(),
+                },
+            )
+            .await
+            .unwrap();
 
         eprintln!("Creating remote process");
         let cmd = format!("/usr/bin/socat OPEN:/data,rdonly UNIX-CONNECT:{:#?}", path);
