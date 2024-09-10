@@ -753,7 +753,6 @@ mod tests {
         assert_eq!(DATA, &buffer);
 
         drop(output);
-        drop(output_listener);
         drop(stdios);
 
         eprintln!("Closing port forward");
@@ -768,6 +767,12 @@ mod tests {
             )
             .await
             .unwrap();
+
+        eprintln!("Checking whether the socket is closed");
+        let e = output_listener.accept().await.unwrap_err();
+        assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
+
+        drop(output_listener);
 
         eprintln!("Waiting for session to end");
         let session_status = established_session.wait().await.unwrap();
