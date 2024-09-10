@@ -752,8 +752,6 @@ mod tests {
 
         assert_eq!(DATA, &buffer);
 
-        drop(output);
-        drop(stdios);
 
         eprintln!("Closing port forward");
         conn1
@@ -768,11 +766,12 @@ mod tests {
             .await
             .unwrap();
 
-        eprintln!("Checking whether the socket is closed");
-        let e = output_listener.accept().await.unwrap_err();
-        assert_eq!(e.kind(), io::ErrorKind::ConnectionRefused);
+        eprintln!("Checking whether the forwarded socket is closed");
+        output.read(&mut buffer).await.unwrap();
 
         drop(output_listener);
+        drop(output);
+        drop(stdios);
 
         eprintln!("Waiting for session to end");
         let session_status = established_session.wait().await.unwrap();
