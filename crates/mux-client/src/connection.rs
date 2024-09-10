@@ -476,10 +476,6 @@ impl Connection {
     }
 
     /// Request for local/remote port forwarding closure.
-    ///
-    /// # Warning
-    ///
-    /// Local port forwarding hasn't been tested yet.
     pub async fn close_port_forward(
         &mut self,
         forward_type: ForwardType,
@@ -722,13 +718,13 @@ mod tests {
     }
     run_test!(test_unordered_open_new_session, test_open_new_session_impl);
 
-    async fn test_remote_socket_forward_impl(mut conn: Connection, mut conn1: Connection) {
+    async fn test_remote_socket_forward_impl(mut conn0: Connection, mut conn1: Connection) {
         let path = Path::new("/tmp/openssh-remote-forward.socket");
 
         let output_listener = TcpListener::bind(("127.0.0.1", 1234)).await.unwrap();
 
         eprintln!("Requesting port forward");
-        conn.request_port_forward(
+        conn0.request_port_forward(
             ForwardType::Remote,
             &Socket::UnixSocket { path: path.into() },
             &Socket::TcpSocket {
@@ -741,7 +737,7 @@ mod tests {
 
         eprintln!("Creating remote process");
         let cmd = format!("/usr/bin/socat OPEN:/data,rdonly UNIX-CONNECT:{:#?}", path);
-        let (established_session, stdios) = create_remote_process(conn, &cmd).await;
+        let (established_session, stdios) = create_remote_process(conn0, &cmd).await;
 
         eprintln!("Waiting for connection");
         let (mut output, _addr) = output_listener.accept().await.unwrap();
