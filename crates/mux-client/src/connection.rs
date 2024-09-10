@@ -752,7 +752,6 @@ mod tests {
 
         assert_eq!(DATA, &buffer);
 
-
         eprintln!("Closing port forward");
         conn1
             .close_port_forward(
