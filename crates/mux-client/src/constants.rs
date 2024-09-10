@@ -10,6 +10,7 @@ def_constants!(MUX_MSG_HELLO, 0x00000001);
 def_constants!(MUX_C_NEW_SESSION, 0x10000002);
 def_constants!(MUX_C_ALIVE_CHECK, 0x10000004);
 def_constants!(MUX_C_OPEN_FWD, 0x10000006);
+def_constants!(MUX_C_CLOSE_FWD, 0x10000007);
 def_constants!(MUX_C_STOP_LISTENING, 0x10000009);
 def_constants!(MUX_S_OK, 0x80000001);
 def_constants!(MUX_S_PERMISSION_DENIED, 0x80000002);
