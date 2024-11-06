@@ -13,5 +13,5 @@ keywords = ["ssh", "openssh", "multiplex", "async", "network"]
 categories = ["asynchronous", "network-programming", "api-bindings"]
 
 [dependencies]
-thiserror = "1.0.29"
+thiserror = "2.0.0"
 ssh_format_error = "0.1"
