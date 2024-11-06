@@ -16,5 +16,5 @@ categories = ["asynchronous", "network-programming", "api-bindings"]
 serde = { version = "1.0.103", features = ["derive"] }
 ssh_format_error = "0.1"
 vec-strings = { version = "0.4.5", features = ["serde"] }
-thiserror = "1.0.29"
+thiserror = "2.0.0"
 tokio = { version = "1.11.0", features = ["rt"] }
