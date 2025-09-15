@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.8](https://github.com/openssh-rust/openssh-mux-client/compare/openssh-mux-client-v0.17.7...openssh-mux-client-v0.17.8) - 2025-09-15
+
+### Other
+
+- Update typed-builder requirement in /crates/mux-client ([#67](https://github.com/openssh-rust/openssh-mux-client/pull/67))
+
 ## [0.17.7](https://github.com/openssh-rust/openssh-mux-client/compare/openssh-mux-client-v0.17.6...openssh-mux-client-v0.17.7) - 2025-03-21
 
 ### Other
